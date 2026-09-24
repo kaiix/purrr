@@ -1,0 +1,8 @@
+.DS_Store
+.build/
+.swiftpm/
+.impeccable/
+Purrr.app/
+build/
+Rust/PurrrSpeechBridge/target/
+*.xcuserstate
