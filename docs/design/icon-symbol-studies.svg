@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#292C33"/>
+      <stop offset="1" stop-color="#15171C"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.14"/>
+    </filter>
+
+    <symbol id="sound-orbit" viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r="14" fill="currentColor"/>
+      <g fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round">
+        <path d="M54 55C36 70 36 90 54 105"/>
+        <path d="M106 55C124 70 124 90 106 105"/>
+        <path d="M32 35C3 60 3 100 32 125"/>
+        <path d="M128 35C157 60 157 100 128 125"/>
+      </g>
+    </symbol>
+
+    <symbol id="voiceprint" viewBox="0 0 160 160">
+      <rect x="18" y="65" width="18" height="30" rx="9" fill="currentColor"/>
+      <rect x="45" y="49" width="18" height="62" rx="9" fill="currentColor"/>
+      <rect x="72" y="27" width="18" height="106" rx="9" fill="currentColor"/>
+      <rect x="99" y="49" width="18" height="62" rx="9" fill="currentColor"/>
+      <rect x="126" y="65" width="18" height="30" rx="9" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="meow-mark" viewBox="0 0 160 160">
+      <path d="M20 112V48L51 84L80 42L109 84V48" fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="136" cy="62" r="9" fill="currentColor"/>
+      <circle cx="136" cy="94" r="9" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="purr-ripple" viewBox="0 0 160 160">
+      <g fill="none" stroke="currentColor" stroke-width="15" stroke-linecap="round">
+        <path d="M20 50C38 28 56 72 80 50C104 28 122 72 140 50"/>
+        <path d="M20 80C38 58 56 102 80 80C104 58 122 102 140 80"/>
+        <path d="M20 110C38 88 56 132 80 110C104 88 122 132 140 110"/>
+      </g>
+    </symbol>
+
+    <symbol id="voice-key" viewBox="0 0 160 160">
+      <rect x="19" y="31" width="122" height="98" rx="25" fill="none" stroke="currentColor" stroke-width="15"/>
+      <rect x="49" y="69" width="14" height="28" rx="7" fill="currentColor"/>
+      <rect x="73" y="55" width="14" height="56" rx="7" fill="currentColor"/>
+      <rect x="97" y="69" width="14" height="28" rx="7" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="mic-spacebar" viewBox="0 0 160 160">
+      <rect x="59" y="18" width="42" height="78" rx="21" fill="currentColor"/>
+      <path d="M43 79C43 101 59 114 80 114C101 114 117 101 117 79" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round"/>
+      <rect x="28" y="124" width="104" height="18" rx="9" fill="currentColor"/>
+      <rect x="73" y="107" width="14" height="25" rx="7" fill="currentColor"/>
+    </symbol>
+  </defs>
+
+  <rect width="1440" height="1040" fill="#F4F4F6"/>
+  <text x="72" y="72" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="34" font-weight="700" fill="#17181C">Purrr — Symbol Studies</text>
+  <text x="72" y="108" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="17" fill="#666A73">Sound · voiceprint · meow · purr · keyboard · microphone</text>
+
+  <g transform="translate(70 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">01 · Sound Orbit</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#sound-orbit" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#sound-orbit" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#sound-orbit" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">a voice source radiating outward</text>
+  </g>
+
+  <g transform="translate(515 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">02 · Voiceprint</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#voiceprint" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#voiceprint" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#voiceprint" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">five bars reduced to one silhouette</text>
+  </g>
+
+  <g transform="translate(960 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">03 · Meow Mark</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#meow-mark" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#meow-mark" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#meow-mark" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">a geometric M emitting two beats</text>
+  </g>
+
+  <g transform="translate(70 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">04 · Purr Ripple</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#purr-ripple" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#purr-ripple" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#purr-ripple" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">three stacked low-frequency vibrations</text>
+  </g>
+
+  <g transform="translate(515 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">05 · Voice Key</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#voice-key" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#voice-key" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#voice-key" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">voiceprint contained inside a keycap</text>
+  </g>
+
+  <g transform="translate(960 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">06 · Mic Spacebar</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#mic-spacebar" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#mic-spacebar" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#mic-spacebar" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">microphone stand merged with Space</text>
+  </g>
+</svg>

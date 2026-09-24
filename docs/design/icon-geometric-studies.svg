@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#292C33"/>
+      <stop offset="1" stop-color="#15171C"/>
+    </linearGradient>
+
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.14"/>
+    </filter>
+
+    <symbol id="cat-capsule" viewBox="0 0 160 160">
+      <path d="M28 58L49 34L68 58H92L111 34L132 58C142 60 148 69 148 80V104C148 119 136 131 121 131H39C24 131 12 119 12 104V85C12 70 19 61 28 58Z" fill="currentColor"/>
+      <rect x="51" y="78" width="13" height="31" rx="6.5" fill="var(--cut, #15171C)"/>
+      <rect x="73.5" y="69" width="13" height="40" rx="6.5" fill="var(--cut, #15171C)"/>
+      <rect x="96" y="78" width="13" height="31" rx="6.5" fill="var(--cut, #15171C)"/>
+    </symbol>
+
+    <symbol id="purr-ring" viewBox="0 0 160 160">
+      <circle cx="80" cy="83" r="51" fill="none" stroke="currentColor" stroke-width="17"/>
+      <path d="M35 50L43 20L66 40ZM94 40L117 20L125 50Z" fill="currentColor"/>
+      <rect x="49" y="76" width="12" height="22" rx="6" fill="currentColor"/>
+      <rect x="74" y="65" width="12" height="44" rx="6" fill="currentColor"/>
+      <rect x="99" y="76" width="12" height="22" rx="6" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="triple-rhythm" viewBox="0 0 160 160">
+      <g fill="none" stroke="currentColor" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 116V65C23 51 34 43 46 43C58 43 66 51 66 63"/>
+        <path d="M67 116V65C67 51 78 43 90 43C102 43 110 51 110 63"/>
+        <path d="M111 116V65C111 51 122 43 134 43C143 43 149 48 152 55"/>
+      </g>
+    </symbol>
+
+    <symbol id="ear-wave" viewBox="0 0 160 160">
+      <path d="M18 110V76L43 43L67 103L80 76L93 103L117 43L142 76V110" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="whisker-brackets" viewBox="0 0 160 160">
+      <g fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M58 42L24 80L58 118"/>
+        <path d="M102 42L136 80L102 118"/>
+      </g>
+      <rect x="72" y="59" width="16" height="42" rx="8" fill="currentColor"/>
+    </symbol>
+
+    <symbol id="signal-ears" viewBox="0 0 160 160">
+      <path d="M20 116V62L53 34V116Z" fill="currentColor"/>
+      <rect x="66" y="50" width="28" height="80" rx="14" fill="currentColor"/>
+      <path d="M107 116V34L140 62V116Z" fill="currentColor"/>
+    </symbol>
+  </defs>
+
+  <rect width="1440" height="1040" fill="#F4F4F6"/>
+  <text x="72" y="72" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="34" font-weight="700" fill="#17181C">Purrr — Geometric Icon Studies</text>
+  <text x="72" y="108" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="17" fill="#666A73">Exact vector geometry · identical core mark for the app icon and menu bar</text>
+
+  <g transform="translate(70 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">01 · Cat Capsule</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117) scale(1)"><use href="#cat-capsule" width="160" height="160" color="#1687FF" style="--cut:#191B20"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 97) scale(.2)"><use href="#cat-capsule" width="160" height="160" color="#15161A" style="--cut:#F2F2F4"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 157) scale(.2)"><use href="#cat-capsule" width="160" height="160" color="#FFFFFF" style="--cut:#1A1B20"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">bar + ears + three voice slots</text>
+  </g>
+
+  <g transform="translate(515 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">02 · Purr Ring</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#purr-ring" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#purr-ring" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#purr-ring" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">ring + two ears + voice bars</text>
+  </g>
+
+  <g transform="translate(960 150)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">03 · Triple Rhythm</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#triple-rhythm" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#triple-rhythm" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#triple-rhythm" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">three repeated geometric “r” units</text>
+  </g>
+
+  <g transform="translate(70 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">04 · Ear Wave</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#ear-wave" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#ear-wave" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#ear-wave" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">one line · two ears · one pulse</text>
+  </g>
+
+  <g transform="translate(515 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">05 · Whisker Brackets</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#whisker-brackets" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#whisker-brackets" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#whisker-brackets" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">whiskers + translate brackets</text>
+  </g>
+
+  <g transform="translate(960 585)">
+    <rect width="410" height="400" rx="28" fill="#FFFFFF"/>
+    <text x="28" y="43" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="18" font-weight="650" fill="#24262B">06 · Signal Ears</text>
+    <rect x="28" y="72" width="250" height="250" rx="56" fill="url(#tile)" filter="url(#shadow)"/>
+    <g transform="translate(73 117)"><use href="#signal-ears" width="160" height="160" color="#1687FF"/></g>
+    <rect x="306" y="96" width="72" height="42" rx="12" fill="#F2F2F4"/>
+    <g transform="translate(326 101) scale(.2)"><use href="#signal-ears" width="160" height="160" color="#15161A"/></g>
+    <rect x="306" y="156" width="72" height="42" rx="12" fill="#1A1B20"/>
+    <g transform="translate(326 161) scale(.2)"><use href="#signal-ears" width="160" height="160" color="#FFFFFF"/></g>
+    <text x="28" y="364" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="15" fill="#676B74">three bars with geometric ear caps</text>
+  </g>
+</svg>
