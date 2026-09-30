@@ -2,7 +2,7 @@
 
 ## Platform
 
-macos
+macOS
 
 ## Stack
 
@@ -10,7 +10,7 @@ SwiftPM-based native macOS application using Swift, SwiftUI, and AppKit. Audio c
 
 ## Users
 
-The initial user is the developer or another internal Apple Silicon Mac user who wants to dictate or translate text directly into the application they are already using.
+Apple Silicon Mac users who want to dictate or translate text directly into the application they are already using.
 
 ## Product Purpose
 
@@ -18,7 +18,7 @@ Purrr turns a short voice session into useful text at the current typing destina
 
 ## Positioning
 
-Purrr combines a Typeless-like, shortcut-first macOS interaction with the recognition behavior of Doubao IME, optional bring-your-own-key language-model processing, and local retryable history. It is intentionally a focused personal tool rather than a general assistant.
+Purrr combines shortcut-first voice input, Doubao IME recognition, optional bring-your-own-key language-model processing, and local retryable history. It is a focused writing utility rather than a general assistant.
 
 ## Operating Context
 
@@ -31,8 +31,8 @@ Purrr combines a Typeless-like, shortcut-first macOS interaction with the recogn
 ## Capabilities and Constraints
 
 - macOS 14 or later on Apple Silicon only.
-- Internal or personal distribution; no Mac App Store requirement for v1.
-- Dictate and Translate only. Ask Anything is out of scope.
+- Source-only distribution with local builds; no Mac App Store distribution.
+- Dictate and Translate only; no general voice assistant.
 - Default shortcuts are `Option-Space` for Dictate and `Option-Shift-Space` for Translate; both are customizable.
 - A shortcut toggles recording. `Escape` cancels an active session.
 - A recording may last up to nine minutes, with a visible countdown during the final minute.
@@ -41,7 +41,7 @@ Purrr combines a Typeless-like, shortcut-first macOS interaction with the recogn
 - Language-model processing is optional and defaults to off. Dictate returns raw ASR text while it is off. Translate requires it to be enabled and configured.
 - Initial translation targets are English and Simplified Chinese.
 - The current system default microphone is used in v1.
-- Future speech engines may include local Whisper, SenseVoice, OpenAI realtime transcription, or Gemini live models, but v1 does not implement provider selection or model management.
+- Only Doubao IME recognition is implemented; there is no provider selection or local model management.
 
 ## Brand Commitments
 

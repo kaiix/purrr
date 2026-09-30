@@ -15,6 +15,6 @@ Purrr currently distributes source only. This checklist applies before publishin
 
 - The pinned Koe integration uses `audiopus_sys` 0.2.2, which is flagged as unmaintained by [RUSTSEC-2026-0150](https://rustsec.org/advisories/RUSTSEC-2026-0150.html). Replacing it requires speech-bridge regression checks; successful compilation does not resolve the maintenance risk.
 - The bridge statically links the installed native Opus library. `Cargo.lock` does not pin that library's version; record and review the exact version used for each binary release and its required notices.
-- Local release builds have contained source-location strings from Cargo caches and build directories. Path remapping and a fresh scan of the final distribution artifact are required before binary publication.
+- Rust binaries may embed source-location strings from Cargo caches and build directories. Apply path remapping and scan the final distribution artifact before binary publication.
 
 See [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) for the retained Koe license notice. It is not yet a complete binary dependency notice bundle.

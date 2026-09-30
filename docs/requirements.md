@@ -1,11 +1,10 @@
 # Purrr v1 Requirements
 
-Status: Initial prototype implemented  
-Last updated: 2026-09-22
+Status: Initial prototype implemented
 
 ## 1. Product Summary
 
-Purrr is a small, native macOS voice input application for personal and internal use. It runs in the background, records speech after a global shortcut is pressed, converts the speech into text with Doubao IME, optionally processes the transcript with a user-configured OpenAI-compatible language model, and inserts the result into the previously active text field.
+Purrr is a small, native macOS voice input application. It runs in the background, records speech after a global shortcut is pressed, converts the speech into text with Doubao IME, optionally processes the transcript with a user-configured OpenAI-compatible language model, and inserts the result into the previously active text field.
 
 The first version intentionally has a small scope. It should leave clean extension points for future speech engines without implementing a general plugin system, model manager, or provider capability framework.
 
@@ -15,7 +14,7 @@ The first version intentionally has a small scope. It should leave clean extensi
 - Apple Silicon only (`arm64`).
 - Intel Macs are not supported.
 - Native macOS application.
-- Internal or personal distribution rather than Mac App Store distribution.
+- Source-only distribution with local builds rather than Mac App Store distribution.
 - Package the SwiftPM executable as a native `.app` bundle using `Scripts/package_app.sh`.
 
 ## 3. Version 1 Scope
@@ -29,14 +28,14 @@ Purrr v1 must provide:
 5. Doubao IME speech recognition.
 6. Optional language-model post-processing through a user-configured OpenAI-compatible API.
 7. Automatic delivery of the final result to the text field that was active when recording started.
-8. Customizable shortcuts with Typeless-style defaults.
+8. Customizable Dictate and Translate shortcuts.
 9. Local 24-hour audio and transcript history with copy, retry, and deletion actions.
 
 ## 4. Explicit Non-Goals
 
 Purrr v1 does not include:
 
-- Ask Anything or a general voice assistant.
+- A general voice assistant.
 - Operations on selected text.
 - Meeting transcription.
 - Speaker diarization or word-level timestamps.
@@ -119,9 +118,9 @@ While one mode is recording, pressing the other mode's shortcut has no effect. P
 
 Both shortcuts are customizable in Settings. Purrr must prevent the same shortcut from being assigned to both modes, reject unsupported modifier-only combinations, and provide an action to restore the defaults. New shortcut assignments should take effect without restarting the application.
 
-Purrr must consume a recognized shortcut before the foreground application receives it. If another application, such as ChatGPT, has already registered the same global shortcut, Purrr uses an Accessibility-authorized active HID event tap. Carbon hot-key registration remains the lower-permission fallback when no conflict exists.
+Purrr must consume a recognized shortcut before the foreground application receives it. If another application has already registered the same global shortcut, Purrr uses an Accessibility-authorized active HID event tap. Carbon hot-key registration remains the lower-permission fallback when no conflict exists.
 
-The maximum duration of one recording is nine minutes, matching Typeless. At eight minutes, the transcription bar must replace or augment the waveform with a visible 60-second countdown. Reaching nine minutes automatically ends recording and continues through recognition and processing as if the user had pressed the shortcut again.
+The maximum duration of one recording is nine minutes. At eight minutes, the transcription bar must replace or augment the waveform with a visible 60-second countdown. Reaching nine minutes automatically ends recording and continues through recognition and processing as if the user had pressed the shortcut again.
 
 ## 8. Minimal Architecture
 
@@ -178,7 +177,7 @@ The application workflow decides whether to invoke this processor. When language
 
 ## 9. Doubao IME Integration
 
-Doubao IME is the required v1 speech engine because its recognition behavior differs from the public Volcengine ASR product. Purrr should integrate the Doubao IME protocol rather than replace it with the public Volcengine API.
+Purrr v1 uses the unofficial Doubao IME speech-recognition protocol through Koe. It is a remote recognition service, distinct from the public Volcengine ASR API.
 
 Expected behavior based on the Koe reference implementation:
 
@@ -190,7 +189,7 @@ Expected behavior based on the Koe reference implementation:
 
 The returned result may contain a cumulative session transcript and additional per-segment entries. The adapter must treat the cumulative transcript as a replacement snapshot rather than concatenate all entries.
 
-This is an unofficial integration intended for an internal prototype. Its endpoint, authentication, fixed client credential, and result format may change without notice. The Doubao implementation must remain isolated behind `SpeechEngine` so it can be repaired or replaced without changing application workflow code.
+The service's endpoint, authentication, and result format may change without notice. The Doubao implementation must remain isolated behind `SpeechEngine` so it can be repaired or replaced without changing application workflow code.
 
 Reference:
 
@@ -303,7 +302,7 @@ Development builds should use a stable signing identity when one is available. R
 
 ## 15. Privacy
 
-Purrr is an internal prototype, but its data flow must still be explicit:
+Purrr's data flow must be explicit:
 
 - Audio is sent to the Doubao IME service.
 - Recognized text is sent to the user-configured OpenAI-compatible endpoint only when language-model processing is enabled and required for the active flow.
@@ -328,21 +327,6 @@ Purrr is an internal prototype, but its data flow must still be explicit:
 - Store retained audio as 16 kHz, mono, signed 16-bit PCM WAV. A maximum-duration nine-minute recording is approximately 17 MB before filesystem overhead.
 - Use manual `.app` bundle assembly through `Scripts/package_app.sh`.
 
-Begin with a small integration spike that compiles the Koe Doubao IME implementation as a Rust static library behind a narrow C ABI. Reuse it if the FFI boundary, application signing, and bundle packaging remain straightforward. If the spike introduces disproportionate complexity, port only the required Doubao IME protocol implementation to Swift. Do not introduce a Rust-wide provider framework for v1.
+The Koe Doubao IME implementation is compiled as a Rust static library behind a narrow C ABI. Keep this bridge limited to the speech operations needed by the app rather than introducing a general Rust provider framework.
 
 Launch at Login is off by default and does not need to be implemented in v1.
-
-## 17. Confirmed Product Decisions
-
-- Dictate and Translate use independent, customizable toggle shortcuts.
-- The default shortcuts are `Option-Space` and `Option-Shift-Space`.
-- The recording bar displays a waveform rather than interim recognition text.
-- Translate initially supports English and Simplified Chinese as target languages.
-- Audio, successful transcripts, and failed sessions remain in local history for 24 hours.
-- History supports copying and retrying while retained audio remains available.
-- Successful delivery shows confirmation for one second before the bar disappears.
-- Language-model processing has an explicit on/off toggle.
-- With language-model processing off, Dictate returns the raw Doubao IME transcript and Translate directs the user to enable the language model.
-- History retention is fixed at 24 hours and History provides Copy, Retry, Delete, and Delete All actions.
-- Dictate falls back to the raw transcript when language-model cleanup fails; Translate never pastes an untranslated fallback as a successful result.
-- Purrr runs as a menu bar application, uses the system default microphone, and does not implement Launch at Login in v1.

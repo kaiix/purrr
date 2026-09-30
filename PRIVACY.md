@@ -1,12 +1,12 @@
 # Privacy and Data Flow
 
-Purrr is a personal-use prototype. Local history does not mean local speech recognition.
+Purrr performs speech recognition through a remote service and stores history on your Mac.
 
 ## Remote Processing
 
 - During Dictate and Translate, microphone audio is streamed to Doubao IME through the unofficial Koe integration. This happens even when LLM processing is disabled.
 - The pinned provider uses `frontier-audio-ime-ws.doubao.com` for speech recognition and `log-klink.zijieapi.com` for device registration. Registration sends client/device metadata and returns a cached device identifier. These endpoints are implementation details, not a supported Purrr service contract.
-- When LLM processing is enabled, Dictate can send the transcript and editing prompt to the user-configured OpenAI-compatible endpoint. An empty Dictate prompt bypasses LLM processing. Translate sends the transcript and translation prompt directly to that endpoint; it does not run Dictate polishing first.
+- When LLM processing is enabled, Dictate sends the transcript and editing prompt to the user-configured OpenAI-compatible endpoint. An empty Dictate prompt does not disable that request. Translate sends the transcript and translation prompt directly to that endpoint; it does not run Dictate polishing first.
 - Model loading sends an authenticated request to the configured endpoint. Test Connection sends a short synthetic text request. The LLM integration sends text, not recorded audio.
 - Purrr does not operate a backend or proxy these requests. The app does not add its own analytics or crash-upload service, but its speech dependency performs the remote device registration described above.
 
@@ -33,7 +33,7 @@ Insertion temporarily writes the result to the system clipboard. After a paste a
 
 ## Deleting Data
 
-Use History's Delete or Delete All actions for retained entries and their audio. Clear the API key in Settings to remove its current Keychain item. Uninstalling the app does not automatically remove Application Support files, preferences, Keychain items, or previously granted permissions. Any data retained under an earlier development bundle identifier must be removed separately.
+Use History's Delete or Delete All actions for retained entries and their audio. Clear the API key in Settings to remove its current Keychain item. Uninstalling the app does not automatically remove Application Support files, preferences, Keychain items, or previously granted permissions.
 
 ## Safe Configuration and Reporting
 

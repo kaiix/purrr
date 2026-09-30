@@ -8,8 +8,7 @@ Purrr links a pinned revision of the `koe-asr` crate from
 Pinned revision: `aedc9747564dc5ec5a0203827edb4d6d67909bc0`.
 
 The license below covers Koe source code, not authorization to use any remote
-speech service. Typeless and Handy are product or architectural references;
-Purrr does not link their applications.
+speech service.
 
 This notice is not a complete license bundle for a distributed executable.
 The Rust bridge also links transitive Cargo dependencies and native code such

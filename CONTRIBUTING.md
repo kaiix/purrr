@@ -12,6 +12,17 @@ PURRR_CODESIGN_IDENTITY=- Scripts/package_app.sh debug
 
 Run `Scripts/compile_and_run.sh` for interactive work. macOS permissions and live-provider behavior need manual checks; compilation alone does not verify them. Keep the app at a stable path and use a stable signing identity when testing permissions.
 
+The build scripts automatically select the first available Apple Development signing identity, falling back to ad-hoc signing. To select an identity or skip signing:
+
+```bash
+PURRR_CODESIGN_IDENTITY="Apple Development: Your Name (TEAMID)" Scripts/compile_and_run.sh
+PURRR_CODESIGN_IDENTITY= Scripts/package_app.sh debug
+```
+
+Rust dependencies are pinned by `Cargo.lock`; normal builds use `--locked`. The speech bridge requires an installed static Opus library discoverable through pkg-config. Include the native Opus version when reporting build issues, since `Cargo.lock` does not pin it.
+
+GitHub Actions checks formatting and packaged release builds on Apple Silicon without speech credentials, API keys, or a personal signing identity. It does not verify live recognition, text delivery, or macOS permissions.
+
 ## Before Submitting
 
 ```bash
