@@ -6,3 +6,11 @@ Purrr.app/
 build/
 Rust/PurrrSpeechBridge/target/
 *.xcuserstate
+.env
+.env.*
+*.p8
+*.p12
+*.pem
+doubaoime_credentials.json
+history.json
+*.wav

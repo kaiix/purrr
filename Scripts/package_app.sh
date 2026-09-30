@@ -32,7 +32,6 @@ SWIFT_BUILD_ARGS=(
 if [[ "$CONFIGURATION" == "release" ]]; then
   SWIFT_BUILD_ARGS+=(
     -debug-info-format none
-    --enable-experimental-strip-products
   )
 fi
 swift build "${SWIFT_BUILD_ARGS[@]}"
@@ -50,6 +49,9 @@ cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$APP_BUNDLE/Contents/Resources/ThirdParty
 cp "$ROOT_DIR/Assets/PurrrAppIcon.icns" "$APP_BUNDLE/Contents/Resources/PurrrAppIcon.icns"
 cp "$ROOT_DIR/Assets/PurrrMenuBarIcon.png" "$APP_BUNDLE/Contents/Resources/PurrrMenuBarIcon.png"
 chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+if [[ "$CONFIGURATION" == "release" ]]; then
+  strip -S "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+fi
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

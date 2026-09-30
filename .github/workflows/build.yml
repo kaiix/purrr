@@ -1,0 +1,45 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      PURRR_CODESIGN_IDENTITY: "-"
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Check toolchains
+        run: |
+          test "$(uname -m)" = arm64
+          swift --version
+          rustc --version
+          cmake --version
+          rustup target add aarch64-apple-darwin
+      - name: Install native audio dependencies
+        run: brew install opus pkgconf
+      - name: Check formatting and shell syntax
+        run: |
+          swift format lint --strict --recursive Sources/Purrr
+          cargo fmt --manifest-path Rust/PurrrSpeechBridge/Cargo.toml --check
+          for script in Scripts/*.sh; do bash -n "$script"; done
+      - name: Build and verify the app
+        run: |
+          Scripts/package_app.sh
+          codesign --verify --deep --strict build/Purrr.app
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Purrr.app/Contents/Info.plist)" = io.github.kaiix.purrr
+          test -s build/Purrr.app/Contents/Resources/ThirdPartyNotices.md
