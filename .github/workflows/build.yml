@@ -43,3 +43,4 @@ jobs:
           codesign --verify --deep --strict build/Purrr.app
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Purrr.app/Contents/Info.plist)" = io.github.kaiix.purrr
           test -s build/Purrr.app/Contents/Resources/ThirdPartyNotices.md
+          cmp LICENSE build/Purrr.app/Contents/Resources/LICENSE

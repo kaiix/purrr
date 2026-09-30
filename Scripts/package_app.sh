@@ -45,6 +45,7 @@ fi
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BINARY_PATH" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+cp "$ROOT_DIR/LICENSE" "$APP_BUNDLE/Contents/Resources/LICENSE"
 cp "$ROOT_DIR/THIRD_PARTY_NOTICES.md" "$APP_BUNDLE/Contents/Resources/ThirdPartyNotices.md"
 cp "$ROOT_DIR/Assets/PurrrAppIcon.icns" "$APP_BUNDLE/Contents/Resources/PurrrAppIcon.icns"
 cp "$ROOT_DIR/Assets/PurrrMenuBarIcon.png" "$APP_BUNDLE/Contents/Resources/PurrrMenuBarIcon.png"
