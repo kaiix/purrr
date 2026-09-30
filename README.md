@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Assets/PurrrAppIcon.png" alt="Purrr app icon" width="96" height="96">
+</p>
+
 # Purrr
 
 Purrr is an experimental macOS menu bar app for dictating and translating speech into the app you are using. Start and stop recording with a keyboard shortcut, then have the result pasted into the original text field.
