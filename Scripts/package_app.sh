@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Purrr"
-BUNDLE_ID="com.kaiix.purrr"
+BUNDLE_ID="io.github.kaiix.purrr"
 MACOS_MIN_VERSION="14.0"
 CONFIGURATION="${1:-release}"
 OUTPUT_DIR="$ROOT_DIR/build"

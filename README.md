@@ -2,6 +2,8 @@
 
 Purrr is a focused macOS voice-input prototype. It provides Dictate and Translate modes through global toggle shortcuts, uses the Doubao IME speech-recognition protocol, optionally cleans or translates text with a user-provided OpenAI-compatible API, and keeps retryable local history for 24 hours.
 
+The app's bundle identifier and Keychain service are `io.github.kaiix.purrr`.
+
 ## Requirements
 
 - macOS 14 or later

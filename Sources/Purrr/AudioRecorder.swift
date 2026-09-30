@@ -20,7 +20,7 @@ enum AudioRecorderError: LocalizedError {
 
 final class AudioRecorder {
   private let engine = AVAudioEngine()
-  private let recordingQueue = DispatchQueue(label: "com.kaiix.purrr.audio-recording")
+  private let recordingQueue = DispatchQueue(label: "io.github.kaiix.purrr.audio-recording")
   private var pcmData = Data()
   private var startedAt: Date?
   private var converter: AVAudioConverter?

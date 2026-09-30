@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 enum KeychainStore {
-  private static let service = "com.kaiix.purrr"
+  private static let service = "io.github.kaiix.purrr"
 
   static func string(for account: String) -> String {
     let query: [String: Any] = [
