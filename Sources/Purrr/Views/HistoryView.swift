@@ -91,17 +91,20 @@ private struct HistoryRow: View {
             label: "Final",
             text: entry.submittedText,
             unavailableText: submittedUnavailableText,
-            isPrimary: true
+            isPrimary: true,
+            onCopy: { history.copy(entry.submittedText) }
           )
           HistoryTextStage(
-            label: "Processed",
+            label: "Optimized",
             text: entry.processedText,
-            unavailableText: "Not available"
+            unavailableText: "Not available",
+            onCopy: { history.copy(entry.processedText) }
           )
           HistoryTextStage(
             label: "Transcript",
             text: entry.rawTranscript,
-            unavailableText: "Not available"
+            unavailableText: "Not available",
+            onCopy: { history.copy(entry.rawTranscript) }
           )
         }
 
@@ -116,13 +119,6 @@ private struct HistoryRow: View {
       Spacer(minLength: 18)
 
       HStack(spacing: 8) {
-        Button {
-          history.copy(entry)
-        } label: {
-          Label("Copy", systemImage: "doc.on.doc")
-        }
-        .disabled(entry.preferredCopyText == nil)
-
         if entry.status == .failed || entry.status == .dismissed || entry.usedRawFallback {
           Button {
             model.retry(entry)
@@ -178,6 +174,7 @@ private struct HistoryTextStage: View {
   let text: String?
   let unavailableText: String
   var isPrimary = false
+  let onCopy: () -> Void
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -190,13 +187,24 @@ private struct HistoryTextStage: View {
         Text(displayText)
           .font(isPrimary ? .body : .callout)
           .foregroundStyle(isPrimary ? .primary : .secondary)
-          .lineLimit(2)
+          .lineLimit(nil)
+          .fixedSize(horizontal: false, vertical: true)
+          .frame(maxWidth: .infinity, alignment: .leading)
           .textSelection(.enabled)
+
+        Button(action: onCopy) {
+          Image(systemName: "doc.on.doc")
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .help("Copy \(label.lowercased()) text")
+        .accessibilityLabel("Copy \(label.lowercased()) text")
       } else {
         Text(unavailableText)
           .font(.callout)
           .foregroundStyle(.tertiary)
           .italic()
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
   }

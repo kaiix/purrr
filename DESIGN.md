@@ -203,7 +203,7 @@ Prompt customization uses one editor rather than two competing text surfaces. A 
 
 ### History Rows
 
-History is a recovery ledger, not a content card collection. Each row combines a state symbol, compact metadata, and three aligned text stages labeled Final, Processed, and Transcript. Final is the last readable value when the post-insertion editing session ended; it carries the strongest emphasis. Processed and Transcript remain quieter but visible for quality comparison. Missing stages use explicit neutral language rather than silently substituting another stage. Trailing Copy, Retry, and Delete actions remain native, compact, and visibly disabled when unavailable.
+History is a recovery ledger, not a content card collection. Each row combines a state symbol, compact metadata, and three aligned text stages labeled Final, Optimized, and Transcript. Final is the last readable value when the post-insertion editing session ended; it carries the strongest emphasis. Optimized and Transcript remain quieter but visible for quality comparison. Every available stage shows its complete text and has its own compact native copy action. Missing stages use explicit neutral language rather than silently substituting another stage. Retry and Delete remain native, compact, and visibly disabled when unavailable.
 
 ### Transcription Strip
 

@@ -136,8 +136,12 @@ final class HistoryStore: ObservableObject {
     return data.subdata(in: WAVEncoder.headerSize..<data.count)
   }
 
-  func copy(_ entry: HistoryEntry) {
-    guard let text = entry.preferredCopyText else { return }
+  func copy(_ text: String?) {
+    guard let text,
+      !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return
+    }
     NSPasteboard.general.clearContents()
     NSPasteboard.general.setString(text, forType: .string)
   }

@@ -147,12 +147,12 @@ Existing entries migrate as follows:
 Each entry displays all three stages with explicit labels:
 
 1. Final
-2. Processed
+2. Optimized
 3. Transcript
 
-An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text. Identical stages remain identifiable as unchanged. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
+Optimized is the user-facing label for the persisted `processedText` value. Each available stage displays its complete text and provides an independent copy action. An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text. Identical stages remain identifiable as unchanged. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
 
-Copy chooses the first available value in this order: submitted, processed, raw transcript. Retry updates the raw and processed stages but sets the submitted stage to `notObserved`, because a History retry is not pasted automatically.
+Retry updates the raw and processed stages but sets the submitted stage to `notObserved`, because a History retry is not pasted automatically.
 
 The existing 24-hour retention and deletion behavior applies to every text stage and its destination metadata.
 
@@ -312,7 +312,8 @@ Until per-term deletion behavior is confirmed, Purrr must not automatically uplo
 
 ### Phase 3: History comparison UI
 
-- Display Final, Processed, and Transcript for every entry.
+- Display complete Final, Optimized, and Transcript text for every entry.
+- Provide an independent copy action for each available stage.
 - Make unavailable states explicit.
 - Add compact comparisons without turning History into an editor.
 
