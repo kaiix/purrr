@@ -1,6 +1,6 @@
 # Purrr v1 Requirements
 
-Status: Initial prototype implemented
+Status: Initial prototype implemented; accepted follow-up plan documented
 
 ## 1. Product Summary
 
@@ -43,7 +43,7 @@ Purrr v1 does not include:
 - A local Whisper or SenseVoice implementation.
 - A local model downloader or model manager.
 - A general plugin system.
-- A personal dictionary.
+- A personal dictionary in the initial v1 deliverable. The accepted follow-up is staged in `docs/design/submitted-text-context-and-dictionary.md`.
 - Per-application writing profiles.
 - Mobile or non-macOS clients.
 - User accounts, subscriptions, or a Purrr cloud service.
@@ -64,7 +64,7 @@ Future local and cloud speech engines remain architectural considerations, not v
 8. If language-model processing is enabled, Purrr sends the transcript to the configured language model. The model removes filler words, repetitions, and false starts; resolves spoken self-corrections; and adds appropriate punctuation and formatting.
 9. If language-model processing is disabled, Purrr uses the final transcript returned by Doubao IME without modification.
 10. Purrr inserts the resulting text into the original destination.
-11. Purrr stores the source transcript and delivered text in local history.
+11. Purrr stores the raw transcript and processed text in local history. A later confirmed submit updates the same entry with the text the user actually submitted.
 
 The language model must preserve the user's intended meaning. It must not invent facts, expand the content, or silently change names, numbers, URLs, code, or technical terms.
 
@@ -80,7 +80,7 @@ The language model must preserve the user's intended meaning. It must not invent
 8. Purrr sends the transcript and configured target language to the language model.
 9. The model removes speech disfluencies and produces a natural translation while preserving meaning and tone.
 10. Purrr inserts the translated text into the original destination.
-11. Purrr stores the source transcript and translated text in local history.
+11. Purrr stores the raw transcript and processed translation in local history. A later confirmed submit updates the same entry with the text the user actually submitted.
 
 Translation should be performed by the language model after speech recognition. Doubao IME remains responsible only for speech recognition.
 
@@ -246,13 +246,15 @@ Every session with captured audio creates a history entry, including failed and 
 - Completion timestamp.
 - Mode: Dictate or Translate.
 - Locally stored audio.
-- Source transcript.
-- Delivered text.
+- Raw transcript returned by the speech engine.
+- Processed text produced by Purrr and inserted into the destination.
+- Final edited text when Purrr can observe a readable value associated with its insertion and detect that the editing session ended.
+- Final-edit state and timestamp. Unreadable observations must not be presented as captured final edits.
 - Target language for Translate entries.
 - Status: succeeded, failed, dismissed, or retrying.
 - A non-sensitive failure category and user-facing error description when applicable.
 
-The history list should emphasize the delivered text and provide Copy, Retry when applicable, and Delete actions. It also provides Delete All. Copying a successful entry copies the delivered text. If an entry has a source transcript but no delivered text, the copy action copies the source transcript.
+The history list displays all three text stages with explicit Final, Processed, and Transcript labels so the user can compare speech recognition, model processing, and final corrections. An unavailable final stage must be shown as unavailable rather than replaced with processed text. The list provides Copy, Retry when applicable, and Delete actions. It also provides Delete All. Copying chooses final edited text first, then processed text, then the raw transcript.
 
 Users can delete an individual entry before its automatic expiration. Deletion removes both its audio and transcript data.
 
@@ -267,6 +269,8 @@ Failed or dismissed entries with retained audio provide a Retry action.
 - Retry does not extend the entry's original 24-hour retention deadline.
 
 The first version does not require history search, folders, tags, cloud sync, transcript editing, audio playback, or audio download/export. Audio is retained only to support Retry during the 24-hour retention period.
+
+The accepted implementation analysis for submitted-text observation, conversation-scoped context, local dictionary learning, and possible Doubao IME personal-lexicon synchronization is recorded in `docs/design/submitted-text-context-and-dictionary.md`. These follow-up capabilities must remain bounded and fail closed; they do not authorize global typing capture or unverified cross-conversation context.
 
 ## 12. Text Delivery and Focus Safety
 

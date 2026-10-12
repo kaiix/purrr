@@ -26,7 +26,7 @@ Purrr combines shortcut-first voice input, Doubao IME recognition, optional brin
 - The user starts Dictate or Translate with independent global toggle shortcuts while another application's text field is focused.
 - A non-activating floating bar communicates recording and processing without showing live transcript text.
 - The result is delivered back to the original destination when focus remains safe; otherwise it is copied to the clipboard.
-- Audio and transcript history remain local for 24 hours and support copy, retry, individual deletion, and Delete All.
+- Audio and text history remain local for 24 hours. History distinguishes raw transcript, processed output, and confirmed submitted text, and supports copy, retry, individual deletion, and Delete All.
 
 ## Capabilities and Constraints
 
@@ -55,6 +55,7 @@ Purrr combines shortcut-first voice input, Doubao IME recognition, optional brin
 - Design system: `DESIGN.md`.
 - Native application packaging: `Scripts/package_app.sh`.
 - Speech-engine references: `https://github.com/cjpais/Handy` and `https://github.com/missuo/koe`.
+- Submitted-text, context, and dictionary plan: `docs/design/submitted-text-context-and-dictionary.md`.
 - Original app and menu bar marks: `Assets/`.
 
 ## Product Principles
