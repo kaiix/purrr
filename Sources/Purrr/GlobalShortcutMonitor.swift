@@ -48,6 +48,8 @@ private func purrrEventTapHandler(
 final class GlobalShortcutMonitor {
   var onTrigger: ((SessionMode) -> Void)?
   var onRegistrationChange: ((String?) -> Void)?
+  var onKeyDown: ((SubmissionKeyEvent) -> Void)?
+  var onPointerDown: ((CGPoint) -> Void)?
 
   private let signature: OSType = 0x5075_7272  // "Purr"
   private var eventHandler: EventHandlerRef?
@@ -111,25 +113,38 @@ final class GlobalShortcutMonitor {
   }
 
   fileprivate func consume(type: CGEventType, event: CGEvent) -> Bool {
+    if type == .leftMouseDown {
+      onPointerDown?(event.location)
+      return false
+    }
+
     let keyCode = UInt32(event.getIntegerValueField(.keyboardEventKeycode))
 
     if type == .keyUp, consumedKeyCodes.remove(keyCode) != nil {
       return true
     }
 
-    guard type == .keyDown,
-      let mode = shortcuts.first(where: { matches(event, shortcut: $0.shortcut) })?.mode
-    else {
-      return false
+    guard type == .keyDown else { return false }
+
+    if let mode = shortcuts.first(where: { matches(event, shortcut: $0.shortcut) })?.mode {
+      consumedKeyCodes.insert(keyCode)
+      if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
+        DispatchQueue.main.async { [weak self] in
+          self?.onTrigger?(mode)
+        }
+      }
+      return true
     }
 
-    consumedKeyCodes.insert(keyCode)
-    if event.getIntegerValueField(.keyboardEventAutorepeat) == 0 {
-      DispatchQueue.main.async { [weak self] in
-        self?.onTrigger?(mode)
-      }
+    let submissionEvent = SubmissionKeyEvent(
+      keyCode: keyCode,
+      flags: event.flags,
+      isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+    )
+    if SubmissionObservationLogic.shouldRefreshAfterKey(submissionEvent) {
+      onKeyDown?(submissionEvent)
     }
-    return true
+    return false
   }
 
   fileprivate func enableEventTap() {
@@ -143,6 +158,7 @@ final class GlobalShortcutMonitor {
     let eventMask =
       (CGEventMask(1) << CGEventType.keyDown.rawValue)
       | (CGEventMask(1) << CGEventType.keyUp.rawValue)
+      | (CGEventMask(1) << CGEventType.leftMouseDown.rawValue)
     guard
       let tap = CGEvent.tapCreate(
         tap: .cghidEventTap,

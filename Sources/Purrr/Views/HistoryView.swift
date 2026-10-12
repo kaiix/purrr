@@ -27,7 +27,7 @@ struct HistoryView: View {
         history.deleteAll()
       }
     } message: {
-      Text("This permanently deletes all retained audio and transcripts.")
+      Text("This permanently deletes all retained audio and text.")
     }
   }
 
@@ -36,7 +36,7 @@ struct HistoryView: View {
       VStack(alignment: .leading, spacing: 5) {
         Text("History")
           .font(.system(size: 28, weight: .bold))
-        Text("Audio and transcripts stay on this Mac for 24 hours.")
+        Text("Audio and text stay on this Mac for 24 hours.")
           .foregroundStyle(.secondary)
       }
       Spacer()
@@ -71,7 +71,7 @@ private struct HistoryRow: View {
         .frame(width: 20, height: 20)
         .padding(.top, 2)
 
-      VStack(alignment: .leading, spacing: 7) {
+      VStack(alignment: .leading, spacing: 9) {
         HStack(spacing: 8) {
           Text(entry.mode.title)
             .font(.caption.weight(.semibold))
@@ -86,10 +86,24 @@ private struct HistoryRow: View {
           }
         }
 
-        Text(displayText)
-          .font(.body)
-          .foregroundStyle(entry.preferredCopyText == nil ? .secondary : .primary)
-          .lineLimit(3)
+        VStack(alignment: .leading, spacing: 6) {
+          HistoryTextStage(
+            label: "Final",
+            text: entry.submittedText,
+            unavailableText: submittedUnavailableText,
+            isPrimary: true
+          )
+          HistoryTextStage(
+            label: "Processed",
+            text: entry.processedText,
+            unavailableText: "Not available"
+          )
+          HistoryTextStage(
+            label: "Transcript",
+            text: entry.rawTranscript,
+            unavailableText: "Not available"
+          )
+        }
 
         if let message = entry.failureMessage, entry.status != .succeeded {
           Text(message)
@@ -115,7 +129,9 @@ private struct HistoryRow: View {
           } label: {
             Label("Retry", systemImage: "arrow.clockwise")
           }
-          .disabled(model.phase.isActive || (entry.audioFileName == nil && entry.sourceText == nil))
+          .disabled(
+            model.phase.isActive || (entry.audioFileName == nil && entry.rawTranscript == nil)
+          )
         }
 
         Button(role: .destructive) {
@@ -123,20 +139,18 @@ private struct HistoryRow: View {
         } label: {
           Image(systemName: "trash")
         }
-        .help("Delete audio and transcript")
+        .help("Delete retained audio and text")
       }
       .buttonStyle(.borderless)
     }
     .padding(.vertical, 10)
   }
 
-  private var displayText: String {
-    if let text = entry.preferredCopyText { return text }
-    return switch entry.status {
-    case .dismissed: "The transcription was dismissed."
-    case .retrying: "Retrying transcription…"
-    case .failed: "No transcript is available."
-    case .succeeded: "No speech was detected."
+  private var submittedUnavailableText: String {
+    switch entry.submissionState {
+    case .pending: "Watching for final edits…"
+    case .cancelled: "Editing cancelled"
+    case .confirmed, .notObserved, .unknown: "Not captured"
     }
   }
 
@@ -156,5 +170,40 @@ private struct HistoryRow: View {
     case .dismissed: .secondary
     case .retrying: .accentColor
     }
+  }
+}
+
+private struct HistoryTextStage: View {
+  let label: String
+  let text: String?
+  let unavailableText: String
+  var isPrimary = false
+
+  var body: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 10) {
+      Text(label)
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .frame(width: 66, alignment: .trailing)
+
+      if let displayText {
+        Text(displayText)
+          .font(isPrimary ? .body : .callout)
+          .foregroundStyle(isPrimary ? .primary : .secondary)
+          .lineLimit(2)
+          .textSelection(.enabled)
+      } else {
+        Text(unavailableText)
+          .font(.callout)
+          .foregroundStyle(.tertiary)
+          .italic()
+      }
+    }
+  }
+
+  private var displayText: String? {
+    guard let text else { return nil }
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmed.isEmpty ? nil : trimmed
   }
 }

@@ -37,6 +37,7 @@ final class AppModel: ObservableObject {
   private let speechEngine: any SpeechEngine
   private let textProcessor: any TextProcessor
   private let delivery = TextDeliveryService()
+  private let submittedTextObserver = SubmittedTextObserver()
   private let windows = AppWindowCoordinator()
   private var destination: CapturedDestination?
   private var activeTargetLanguage: TranslationLanguage?
@@ -71,6 +72,18 @@ final class AppModel: ObservableObject {
     shortcuts.onRegistrationChange = { [weak self] message in
       Task { @MainActor in
         self?.shortcutWarning = message
+      }
+    }
+    let submittedTextObserver = self.submittedTextObserver
+    shortcuts.onKeyDown = { [weak submittedTextObserver] event in
+      submittedTextObserver?.handleKeyDown(event)
+    }
+    shortcuts.onPointerDown = { [weak submittedTextObserver] location in
+      submittedTextObserver?.handlePointerDown(at: location)
+    }
+    submittedTextObserver.onUpdate = { [weak self] id, outcome in
+      Task { @MainActor in
+        self?.history.applySubmissionOutcome(id: id, outcome: outcome)
       }
     }
     speechEngine.onEvent = { [weak self] sessionID, event in
@@ -158,8 +171,8 @@ final class AppModel: ObservableObject {
     history.add(
       mode: mode,
       recording: recording,
-      sourceText: nil,
-      deliveredText: nil,
+      rawTranscript: nil,
+      processedText: nil,
       targetLanguage: activeTargetLanguage,
       status: .dismissed,
       failureMessage: "The transcription was dismissed."
@@ -192,7 +205,7 @@ final class AppModel: ObservableObject {
     panelController.show()
 
     if entry.failureStage == .languageModel,
-      let source = entry.sourceText,
+      let source = entry.rawTranscript,
       !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     {
       phase = .processing
@@ -412,8 +425,8 @@ final class AppModel: ObservableObject {
     if let retryID = pendingRetryID {
       history.update(
         id: retryID,
-        sourceText: transcript,
-        deliveredText: output,
+        rawTranscript: transcript,
+        processedText: output,
         status: .succeeded,
         failureStage: usedFallback ? .languageModel : nil,
         failureMessage: fallbackMessage,
@@ -425,12 +438,28 @@ final class AppModel: ObservableObject {
 
     phase = .delivering
     statusMessage = "Returning to the original app"
+    let preparedObservation = submittedTextObserver.prepare(
+      destination: destination,
+      processedText: output
+    )
     let deliveryResult = delivery.deliver(output, to: destination)
+    let historyID = UUID()
+    let isObservingSubmission: Bool
+    if case .pasted = deliveryResult, let preparedObservation {
+      isObservingSubmission = submittedTextObserver.start(
+        entryID: historyID,
+        prepared: preparedObservation
+      )
+    } else {
+      isObservingSubmission = false
+    }
     history.add(
+      id: historyID,
       mode: mode,
       recording: pendingRecording,
-      sourceText: transcript,
-      deliveredText: output,
+      rawTranscript: transcript,
+      processedText: output,
+      submissionState: isObservingSubmission ? .pending : .notObserved,
       targetLanguage: activeTargetLanguage,
       status: .succeeded,
       failureStage: usedFallback ? .languageModel : nil,
@@ -447,8 +476,8 @@ final class AppModel: ObservableObject {
       history.add(
         mode: mode,
         recording: pendingRecording,
-        sourceText: nil,
-        deliveredText: nil,
+        rawTranscript: nil,
+        processedText: nil,
         targetLanguage: activeTargetLanguage,
         status: .dismissed,
         failureStage: .speechRecognition,
@@ -472,8 +501,8 @@ final class AppModel: ObservableObject {
       history.add(
         mode: mode,
         recording: pendingRecording,
-        sourceText: sourceText,
-        deliveredText: nil,
+        rawTranscript: sourceText,
+        processedText: nil,
         targetLanguage: activeTargetLanguage,
         status: .failed,
         failureStage: stage,
@@ -493,8 +522,8 @@ final class AppModel: ObservableObject {
     if let retryID = pendingRetryID {
       history.update(
         id: retryID,
-        sourceText: sourceText,
-        deliveredText: nil,
+        rawTranscript: sourceText,
+        processedText: nil,
         status: .failed,
         failureStage: stage,
         failureMessage: message

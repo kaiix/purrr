@@ -35,5 +35,10 @@ let package = Package(
         .swiftLanguageMode(.v5)
       ]
     ),
+    .testTarget(
+      name: "PurrrTests",
+      dependencies: ["Purrr"],
+      path: "Tests/PurrrTests"
+    ),
   ]
 )

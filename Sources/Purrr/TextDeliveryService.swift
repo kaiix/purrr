@@ -28,7 +28,7 @@ final class TextDeliveryService {
     return CapturedDestination(
       processIdentifier: application.processIdentifier,
       bundleIdentifier: application.bundleIdentifier,
-      focusedElement: focusedElement()
+      focusedElement: AccessibilityReader.focusedElement()
     )
   }
 
@@ -47,7 +47,7 @@ final class TextDeliveryService {
     guard let destination,
       NSWorkspace.shared.frontmostApplication?.processIdentifier == destination.processIdentifier,
       let originalElement = destination.focusedElement,
-      let currentElement = focusedElement(),
+      let currentElement = AccessibilityReader.focusedElement(),
       CFEqual(originalElement, currentElement)
     else {
       return .copiedBecauseFocusChanged
@@ -83,19 +83,4 @@ final class TextDeliveryService {
     _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
   }
 
-  private func focusedElement() -> AXUIElement? {
-    let systemWide = AXUIElementCreateSystemWide()
-    var value: CFTypeRef?
-    guard
-      AXUIElementCopyAttributeValue(
-        systemWide,
-        kAXFocusedUIElementAttribute as CFString,
-        &value
-      ) == .success,
-      let value
-    else {
-      return nil
-    }
-    return (value as! AXUIElement)
-  }
 }

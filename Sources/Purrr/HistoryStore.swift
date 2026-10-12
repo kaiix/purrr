@@ -10,15 +10,19 @@ final class HistoryStore: ObservableObject {
   private let encoder: JSONEncoder
   private let decoder: JSONDecoder
 
-  init(fileManager: FileManager = .default) {
-    let applicationSupport = fileManager.urls(
-      for: .applicationSupportDirectory,
-      in: .userDomainMask
-    )[0]
-    rootURL =
-      applicationSupport
-      .appendingPathComponent("Purrr", isDirectory: true)
-      .appendingPathComponent("History", isDirectory: true)
+  init(fileManager: FileManager = .default, storageURL: URL? = nil) {
+    if let storageURL {
+      rootURL = storageURL
+    } else {
+      let applicationSupport = fileManager.urls(
+        for: .applicationSupportDirectory,
+        in: .userDomainMask
+      )[0]
+      rootURL =
+        applicationSupport
+        .appendingPathComponent("Purrr", isDirectory: true)
+        .appendingPathComponent("History", isDirectory: true)
+    }
     indexURL = rootURL.appendingPathComponent("history.json")
     encoder = JSONEncoder()
     encoder.dateEncodingStrategy = .iso8601
@@ -32,17 +36,18 @@ final class HistoryStore: ObservableObject {
 
   @discardableResult
   func add(
+    id: UUID = UUID(),
     mode: SessionMode,
     recording: AudioRecording?,
-    sourceText: String?,
-    deliveredText: String?,
+    rawTranscript: String?,
+    processedText: String?,
+    submissionState: SubmissionState = .notObserved,
     targetLanguage: TranslationLanguage?,
     status: HistoryStatus,
     failureStage: FailureStage? = nil,
     failureMessage: String? = nil,
     usedRawFallback: Bool = false
   ) -> UUID {
-    let id = UUID()
     let audioFileName: String?
     if let recording, !recording.pcmData.isEmpty {
       let name = "\(id.uuidString).wav"
@@ -58,8 +63,9 @@ final class HistoryStore: ObservableObject {
       completedAt: Date(),
       mode: mode,
       audioFileName: audioFileName,
-      sourceText: sourceText,
-      deliveredText: deliveredText,
+      rawTranscript: rawTranscript,
+      processedText: processedText,
+      submissionState: submissionState,
       targetLanguage: targetLanguage,
       status: status,
       failureStage: failureStage,
@@ -73,16 +79,17 @@ final class HistoryStore: ObservableObject {
 
   func update(
     id: UUID,
-    sourceText: String?,
-    deliveredText: String?,
+    rawTranscript: String?,
+    processedText: String?,
     status: HistoryStatus,
     failureStage: FailureStage? = nil,
     failureMessage: String? = nil,
     usedRawFallback: Bool = false
   ) {
     guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
-    entries[index].sourceText = sourceText ?? entries[index].sourceText
-    entries[index].deliveredText = deliveredText
+    entries[index].rawTranscript = rawTranscript ?? entries[index].rawTranscript
+    entries[index].processedText = processedText
+    entries[index].resetSubmissionObservation()
     entries[index].status = status
     entries[index].failureStage = failureStage
     entries[index].failureMessage = failureMessage
@@ -94,6 +101,24 @@ final class HistoryStore: ObservableObject {
     guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
     entries[index].status = .retrying
     entries[index].failureMessage = nil
+    entries[index].resetSubmissionObservation()
+    save()
+  }
+
+  func applySubmissionOutcome(id: UUID, outcome: SubmissionObservationOutcome) {
+    guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+    switch outcome {
+    case .confirmed(let text, let evidence, let submittedAt):
+      entries[index].submittedText = text
+      entries[index].submissionState = .confirmed
+      entries[index].submittedAt = submittedAt
+      entries[index].submissionEvidence = evidence
+    case .unknown:
+      entries[index].submittedText = nil
+      entries[index].submissionState = .unknown
+      entries[index].submittedAt = nil
+      entries[index].submissionEvidence = nil
+    }
     save()
   }
 
