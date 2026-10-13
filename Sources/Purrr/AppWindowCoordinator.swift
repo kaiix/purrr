@@ -49,6 +49,13 @@ final class AppWindowCoordinator: NSObject, NSWindowDelegate {
     } else if window === historyWindow {
       historyWindow = nil
     }
+    // Back to a menu bar-only app once the last window is gone.
+    if settingsWindow == nil && historyWindow == nil {
+      DispatchQueue.main.async { [weak self] in
+        guard let self, self.settingsWindow == nil, self.historyWindow == nil else { return }
+        NSApp.setActivationPolicy(.accessory)
+      }
+    }
   }
 
   private func makeWindow(
@@ -72,6 +79,8 @@ final class AppWindowCoordinator: NSObject, NSWindowDelegate {
   }
 
   private func present(_ window: NSWindow) {
+    // Show in the Dock and App Switcher while a window is open.
+    NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
     window.makeKeyAndOrderFront(nil)
   }

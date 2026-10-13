@@ -323,7 +323,7 @@ Purrr's data flow must be explicit:
 
 - SwiftPM-based macOS application.
 - Swift and SwiftUI/AppKit for the application shell.
-- Menu bar application without a regular Dock icon.
+- Menu bar application. It appears in the Dock and App Switcher only while Settings or History is open.
 - `AVAudioEngine` for microphone capture.
 - Use the current system default microphone. Purrr v1 does not need an input-device selector.
 - Native macOS event monitoring for shortcuts.

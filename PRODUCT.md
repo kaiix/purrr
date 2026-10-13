@@ -22,7 +22,7 @@ Purrr combines shortcut-first voice input, Doubao IME recognition, optional brin
 
 ## Operating Context
 
-- Purrr runs as a menu bar application without a regular Dock icon.
+- Purrr runs as a menu bar application. It appears in the Dock and App Switcher only while Settings or History is open.
 - The user starts Dictate or Translate with independent global toggle shortcuts while another application's text field is focused.
 - A non-activating floating bar communicates recording and processing without showing live transcript text.
 - The result is delivered back to the original destination when focus remains safe; otherwise it is copied to the clipboard.
