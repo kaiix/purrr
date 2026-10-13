@@ -5,26 +5,35 @@ struct HistoryView: View {
   @ObservedObject var model: AppModel
   @State private var confirmDeleteAll = false
   @State private var expanded: Set<UUID> = []
+  @State private var selection: UUID?
+  @State private var copied: (id: UUID, label: String)?
+  // Hidden at once, deleted when the Undo window ends.
+  @State private var removed: HistoryEntry?
+  @State private var removalTask: Task<Void, Never>?
+  @FocusState private var listFocused: Bool
 
   var body: some View {
     VStack(spacing: 0) {
       header
       Divider()
-      if history.entries.isEmpty {
+      if entries.isEmpty {
         emptyState
       } else {
-        List {
-          ForEach(history.entries) { entry in
-            HistoryRow(entry: entry, history: history, model: model, expanded: $expanded)
-          }
-        }
-        .listStyle(.inset)
+        list
       }
     }
     .frame(minWidth: 720, minHeight: 480)
+    .onDisappear(perform: commitRemoval)
+    .onReceive(
+      NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+    ) { _ in
+      commitRemoval()
+    }
     .alert("Delete all history?", isPresented: $confirmDeleteAll) {
       Button("Cancel", role: .cancel) {}
       Button("Delete All", role: .destructive) {
+        removalTask?.cancel()
+        removed = nil
         history.deleteAll()
       }
     } message: {
@@ -32,11 +41,22 @@ struct HistoryView: View {
     }
   }
 
+  private var entries: [HistoryEntry] {
+    history.entries.filter { $0.id != removed?.id }
+  }
+
   private var header: some View {
-    HStack(spacing: 20) {
-      Text("Kept on this Mac for 24 hours.")
-        .foregroundStyle(.secondary)
-      Spacer()
+    HStack(spacing: 8) {
+      if removed == nil {
+        Text("Kept on this Mac for 24 hours.")
+          .foregroundStyle(.secondary)
+      } else {
+        Text("Removed.")
+          .foregroundStyle(.secondary)
+        Button("Undo", action: undoRemoval)
+          .keyboardShortcut("z", modifiers: .command)
+      }
+      Spacer(minLength: 12)
       Button("Delete All…", role: .destructive) {
         confirmDeleteAll = true
       }
@@ -46,6 +66,41 @@ struct HistoryView: View {
     .padding(.vertical, 10)
   }
 
+  private var list: some View {
+    ScrollViewReader { reader in
+      List {
+        ForEach(entries) { entry in
+          HistoryRow(
+            entry: entry, model: model, expanded: $expanded,
+            isSelected: selection == entry.id,
+            copied: copied?.id == entry.id ? copied?.label : nil,
+            onCopy: { text, label in copy(text, label: label, from: entry) },
+            onRemove: { remove(entry) }
+          )
+          .id(entry.id)
+        }
+      }
+      .listStyle(.inset)
+      .focusable()
+      .focused($listFocused)
+      .focusEffectDisabled()
+      .onKeyPress(.upArrow) { move(-1, reader) }
+      .onKeyPress(.downArrow) { move(1, reader) }
+      .onKeyPress(.rightArrow) { setExpanded(true) }
+      .onKeyPress(.leftArrow) { setExpanded(false) }
+      .onKeyPress(.return) {
+        guard let entry = selectedEntry, let text = entry.leadText else { return .ignored }
+        copy(text, label: "Copied", from: entry)
+        return .handled
+      }
+      .onDeleteCommand {
+        if let entry = selectedEntry { remove(entry) }
+      }
+      .onAppear { listFocused = true }
+      .accessibilityLabel("History")
+    }
+  }
+
   private var emptyState: some View {
     ContentUnavailableView {
       Label("No history", systemImage: "waveform")
@@ -53,6 +108,67 @@ struct HistoryView: View {
       Text("Press \(model.settings.dictateShortcut.displayName) in any text field to dictate.")
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
+  private var selectedEntry: HistoryEntry? {
+    entries.first { $0.id == selection }
+  }
+
+  private func move(_ offset: Int, _ reader: ScrollViewProxy) -> KeyPress.Result {
+    guard !entries.isEmpty else { return .ignored }
+    let current = entries.firstIndex { $0.id == selection }
+    let next = current.map { min(max($0 + offset, 0), entries.count - 1) } ?? 0
+    selection = entries[next].id
+    reader.scrollTo(entries[next].id)
+    return .handled
+  }
+
+  private func setExpanded(_ isExpanded: Bool) -> KeyPress.Result {
+    guard let entry = selectedEntry, entry.leadText != nil else { return .ignored }
+    if isExpanded {
+      expanded.insert(entry.id)
+    } else {
+      expanded.remove(entry.id)
+    }
+    return .handled
+  }
+
+  private func copy(_ text: String?, label: String, from entry: HistoryEntry) {
+    guard let text else { return }
+    history.copy(text)
+    selection = entry.id
+    listFocused = true
+    copied = (entry.id, label)
+    Task {
+      try? await Task.sleep(for: .seconds(1.5))
+      if copied?.id == entry.id, copied?.label == label { copied = nil }
+    }
+  }
+
+  private func remove(_ entry: HistoryEntry) {
+    commitRemoval()
+    if selection == entry.id, let index = entries.firstIndex(where: { $0.id == entry.id }) {
+      let neighbor = index + 1 < entries.count ? index + 1 : index - 1
+      selection = neighbor >= 0 ? entries[neighbor].id : nil
+    }
+    removed = entry
+    removalTask = Task {
+      try? await Task.sleep(for: .seconds(6))
+      if !Task.isCancelled { commitRemoval() }
+    }
+  }
+
+  private func undoRemoval() {
+    removalTask?.cancel()
+    selection = removed?.id
+    removed = nil
+  }
+
+  private func commitRemoval() {
+    removalTask?.cancel()
+    guard let entry = removed else { return }
+    removed = nil
+    history.delete(entry)
   }
 }
 
@@ -65,11 +181,13 @@ private struct HistoryRow: View {
   }
 
   let entry: HistoryEntry
-  @ObservedObject var history: HistoryStore
   @ObservedObject var model: AppModel
   @Binding var expanded: Set<UUID>
+  let isSelected: Bool
+  let copied: String?
+  let onCopy: (String?, String) -> Void
+  let onRemove: () -> Void
   @State private var isHovered = false
-  @State private var copied: String?
 
   var body: some View {
     HStack(alignment: .top, spacing: 4) {
@@ -90,14 +208,14 @@ private struct HistoryRow: View {
           Color.clear.frame(width: 16, height: 16)
         }
       }
-      .foregroundStyle(.tertiary)
+      .foregroundStyle(.secondary)
 
       VStack(alignment: .leading, spacing: 4) {
         caption
 
         if let leadText {
           Button {
-            copy(leadText, confirmation: "Copied")
+            onCopy(leadText, "Copied")
           } label: {
             Text(leadText)
               .multilineTextAlignment(.leading)
@@ -113,7 +231,7 @@ private struct HistoryRow: View {
             ForEach(stages) { stage in
               HistoryStageLine(label: stage.label, text: stage.text, placeholder: stage.placeholder)
               {
-                copy(stage.text, confirmation: "Copied \(stage.label.lowercased())")
+                onCopy(stage.text, "Copied \(stage.label.lowercased())")
               }
             }
           }
@@ -125,10 +243,14 @@ private struct HistoryRow: View {
     .padding(.vertical, 6)
     .contentShape(Rectangle())
     .onTapGesture {
-      copy(leadText, confirmation: "Copied")
+      onCopy(leadText, "Copied")
     }
     .onHover { isHovered = $0 }
-    .listRowBackground(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+    .listRowBackground(
+      isSelected
+        ? Color.accentColor.opacity(0.12) : (isHovered ? Color.primary.opacity(0.05) : Color.clear)
+    )
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
     .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
     .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] }
   }
@@ -162,9 +284,7 @@ private struct HistoryRow: View {
           model.phase.isActive || (entry.audioFileName == nil && entry.rawTranscript == nil)
         )
       }
-      Button {
-        history.delete(entry)
-      } label: {
+      Button(action: onRemove) {
         Image(systemName: "xmark")
           .frame(width: 16, height: 16)
           .contentShape(Rectangle())
@@ -179,20 +299,10 @@ private struct HistoryRow: View {
 
   private var isExpanded: Bool { expanded.contains(entry.id) }
 
-  private func copy(_ text: String?, confirmation: String) {
-    guard let text else { return }
-    history.copy(text)
-    copied = confirmation
-    Task {
-      try? await Task.sleep(for: .seconds(1.5))
-      if copied == confirmation { copied = nil }
-    }
-  }
-
-  private var finalText: String? { Self.clean(entry.submittedText) }
-  private var processedText: String? { Self.clean(entry.processedText) }
-  private var transcript: String? { Self.clean(entry.rawTranscript) }
-  private var leadText: String? { finalText ?? processedText ?? transcript }
+  private var finalText: String? { entry.finalText }
+  private var processedText: String? { HistoryEntry.clean(entry.processedText) }
+  private var transcript: String? { HistoryEntry.clean(entry.rawTranscript) }
+  private var leadText: String? { entry.leadText }
 
   // Always Final, Polished or Translated, Transcript. A stage that adds nothing says why
   // instead of repeating the text of the stage before it.
@@ -230,12 +340,6 @@ private struct HistoryRow: View {
     ]
   }
 
-  private static func clean(_ text: String?) -> String? {
-    guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty
-    else { return nil }
-    return trimmed
-  }
-
   private var note: (text: String, color: Color)? {
     switch entry.status {
     case .failed:
@@ -256,6 +360,24 @@ private struct HistoryRow: View {
   }
 }
 
+extension HistoryEntry {
+  fileprivate var finalText: String? { Self.clean(submittedText) }
+  // The text that ended up in the user's app: the captured final edit, else what Purrr inserted.
+  fileprivate var leadText: String? {
+    finalText ?? Self.clean(processedText) ?? Self.clean(rawTranscript)
+  }
+
+  // A field emptied after sending can leave only invisible characters behind.
+  fileprivate static func clean(_ text: String?) -> String? {
+    let invisible = CharacterSet.whitespacesAndNewlines.union(.controlCharacters)
+      .union(CharacterSet(charactersIn: "\u{FFFC}"))
+    guard let trimmed = text?.trimmingCharacters(in: invisible), !trimmed.isEmpty else {
+      return nil
+    }
+    return trimmed
+  }
+}
+
 private struct HistoryStageLine: View {
   let label: String
   let text: String?
@@ -267,7 +389,7 @@ private struct HistoryStageLine: View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
       Text(label)
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(.secondary)
         .frame(width: 62, alignment: .leading)
       if let text {
         Button(action: onCopy) {
@@ -283,7 +405,8 @@ private struct HistoryStageLine: View {
         .accessibilityHint("Copies this text")
       } else {
         Text(placeholder)
-          .foregroundStyle(.tertiary)
+          .italic()
+          .foregroundStyle(.secondary)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
