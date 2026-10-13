@@ -144,13 +144,13 @@ Existing entries migrate as follows:
 
 ### History presentation
 
-Each entry displays all three stages with explicit labels:
+Each entry is collapsed to the latest available text and copies it when clicked. Expanded, it always lists three stages:
 
 1. Final
 2. Polished (Translated for Translate sessions)
 3. Transcript
 
-Polished or Translated is the user-facing label for the persisted `processedText` value. Each available stage displays its complete text and provides an independent copy action. An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text. Identical stages remain identifiable as unchanged. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
+Polished or Translated is the user-facing label for the persisted `processedText` value. Each stage with distinct text displays it completely and copies it when clicked. An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text, and an identical stage is identified as unchanged ("Same as transcript", "Same as polished") rather than repeated or omitted. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
 
 Retry updates the raw and processed stages but sets the submitted stage to `notObserved`, because a History retry is not pasted automatically.
 

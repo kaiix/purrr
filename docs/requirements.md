@@ -254,7 +254,7 @@ Every session with captured audio creates a history entry, including failed and 
 - Status: succeeded, failed, dismissed, or retrying.
 - A non-sensitive failure category and user-facing error description when applicable.
 
-The history list displays all three text stages with explicit Final, Polished (Translated for Translate sessions), and Transcript labels so the user can compare speech recognition, model processing, and final corrections. Polished or Translated is the user-facing label for the persisted processed text. Every stage displays its complete text without truncation and provides an independent copy action when text is available. An unavailable final stage must be shown as unavailable rather than replaced with processed text. The list also provides Retry when applicable, Delete, and Delete All.
+The history list shows each entry collapsed to the text that ended up in the user's app: the captured final edit, otherwise the text Purrr inserted. Clicking the entry copies that text. Expanding an entry always lists Final, Polished (Translated for Translate sessions), and Transcript so the user can compare speech recognition, model processing, and final corrections. Each stage with distinct text shows it completely and copies it when clicked; a stage with nothing distinct states why, such as Not captured or Same as transcript, instead of repeating another stage's text or being omitted.
 
 Users can delete an individual entry before its automatic expiration. Deletion removes both its audio and transcript data.
 

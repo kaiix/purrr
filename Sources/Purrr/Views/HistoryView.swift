@@ -4,6 +4,7 @@ struct HistoryView: View {
   @ObservedObject var history: HistoryStore
   @ObservedObject var model: AppModel
   @State private var confirmDeleteAll = false
+  @State private var expanded: Set<UUID> = []
 
   var body: some View {
     VStack(spacing: 0) {
@@ -14,7 +15,7 @@ struct HistoryView: View {
       } else {
         List {
           ForEach(history.entries) { entry in
-            HistoryRow(entry: entry, history: history, model: model)
+            HistoryRow(entry: entry, history: history, model: model, expanded: $expanded)
           }
         }
         .listStyle(.inset)
@@ -56,110 +57,177 @@ struct HistoryView: View {
 }
 
 private struct HistoryRow: View {
+  private struct Stage: Identifiable {
+    let label: String
+    var text: String?
+    var placeholder = ""
+    var id: String { label }
+  }
+
   let entry: HistoryEntry
   @ObservedObject var history: HistoryStore
   @ObservedObject var model: AppModel
+  @Binding var expanded: Set<UUID>
+  @State private var isHovered = false
+  @State private var copied: String?
 
   var body: some View {
-    HStack(alignment: .top, spacing: 14) {
-      Image(systemName: statusSymbol)
-        .foregroundStyle(statusColor)
-        .frame(width: 20, height: 20)
-        .padding(.top, 2)
-
-      VStack(alignment: .leading, spacing: 9) {
-        HStack(spacing: 8) {
-          Text(modeTitle)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-          Text(timestamp)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          if entry.usedRawFallback {
-            Text("Not polished")
-              .font(.caption.weight(.medium))
-              .foregroundStyle(.orange)
-          }
-          if entry.status == .dismissed, let message = entry.failureMessage {
-            Text(message)
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          }
-        }
-
-        if finalText != nil || processedText != nil || transcript != nil {
-          VStack(alignment: .leading, spacing: 6) {
-            HistoryTextStage(
-              label: "Final",
-              text: finalText,
-              unavailableText: submittedUnavailableText,
-              isPrimary: true,
-              onCopy: { history.copy(finalText) }
-            )
-            HistoryTextStage(
-              label: entry.mode == .translate ? "Translated" : "Polished",
-              text: processedText,
-              unavailableText: processedUnavailableText,
-              isPrimary: finalText == nil,
-              onCopy: { history.copy(processedText) }
-            )
-            HistoryTextStage(
-              label: "Transcript",
-              text: transcript,
-              unavailableText: "Not available",
-              isPrimary: finalText == nil && processedText == nil,
-              onCopy: { history.copy(transcript) }
-            )
-          }
-        }
-
-        if let message = entry.failureMessage, entry.status == .failed {
-          Text(message)
-            .font(.caption)
-            .foregroundStyle(.red)
-            .lineLimit(2)
-        }
-      }
-
-      Spacer(minLength: 18)
-
-      HStack(spacing: 8) {
-        if entry.status == .failed || entry.status == .dismissed || entry.usedRawFallback {
+    HStack(alignment: .top, spacing: 4) {
+      Group {
+        if leadText != nil {
           Button {
-            model.retry(entry)
+            expanded.formSymmetricDifference([entry.id])
           } label: {
-            Label("Retry", systemImage: "arrow.clockwise")
+            Image(systemName: "chevron.right")
+              .font(.caption2.weight(.semibold))
+              .rotationEffect(.degrees(isExpanded ? 90 : 0))
+              .frame(width: 16, height: 16)
+              .contentShape(Rectangle())
           }
-          .disabled(
-            model.phase.isActive || (entry.audioFileName == nil && entry.rawTranscript == nil)
-          )
+          .help(isExpanded ? "Hide stages" : "Show stages")
+          .accessibilityLabel(isExpanded ? "Hide stages" : "Show stages")
+        } else {
+          Color.clear.frame(width: 16, height: 16)
+        }
+      }
+      .foregroundStyle(.tertiary)
+
+      VStack(alignment: .leading, spacing: 4) {
+        caption
+
+        if let leadText {
+          Button {
+            copy(leadText, confirmation: "Copied")
+          } label: {
+            Text(leadText)
+              .multilineTextAlignment(.leading)
+              .fixedSize(horizontal: false, vertical: true)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .contentShape(Rectangle())
+          }
+          .accessibilityHint("Copies this text")
         }
 
-        Button(role: .destructive) {
-          history.delete(entry)
-        } label: {
-          Image(systemName: "trash")
+        if isExpanded {
+          VStack(alignment: .leading, spacing: 2) {
+            ForEach(stages) { stage in
+              HistoryStageLine(label: stage.label, text: stage.text, placeholder: stage.placeholder)
+              {
+                copy(stage.text, confirmation: "Copied \(stage.label.lowercased())")
+              }
+            }
+          }
+          .padding(.top, 4)
         }
-        .help("Delete")
-        .accessibilityLabel("Delete")
       }
-      .buttonStyle(.borderless)
     }
-    .padding(.vertical, 10)
+    .buttonStyle(.plain)
+    .padding(.vertical, 6)
+    .contentShape(Rectangle())
+    .onTapGesture {
+      copy(leadText, confirmation: "Copied")
+    }
+    .onHover { isHovered = $0 }
+    .listRowBackground(isHovered ? Color.primary.opacity(0.05) : Color.clear)
+    .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+    .alignmentGuide(.listRowSeparatorTrailing) { $0[.trailing] }
+  }
+
+  private var caption: some View {
+    HStack(spacing: 8) {
+      Text(entry.mode.title)
+        .fontWeight(.semibold)
+      Text(timestamp)
+      if let note {
+        Text(note.text)
+          .foregroundStyle(note.color)
+          .lineLimit(1)
+      }
+      Spacer(minLength: 12)
+      if let copied {
+        Label(copied, systemImage: "checkmark")
+          .foregroundStyle(.green)
+      } else if isHovered, leadText != nil {
+        Text("Click to copy")
+          .foregroundStyle(.tertiary)
+      }
+      if entry.status == .failed || entry.status == .dismissed || entry.usedRawFallback {
+        Button {
+          model.retry(entry)
+        } label: {
+          Label("Retry", systemImage: "arrow.clockwise")
+            .foregroundStyle(Color.accentColor)
+        }
+        .disabled(
+          model.phase.isActive || (entry.audioFileName == nil && entry.rawTranscript == nil)
+        )
+      }
+      Button {
+        history.delete(entry)
+      } label: {
+        Image(systemName: "xmark")
+          .frame(width: 16, height: 16)
+          .contentShape(Rectangle())
+      }
+      .opacity(isHovered ? 1 : 0.5)
+      .help("Remove")
+      .accessibilityLabel("Remove from history")
+    }
+    .font(.caption)
+    .foregroundStyle(.secondary)
+  }
+
+  private var isExpanded: Bool { expanded.contains(entry.id) }
+
+  private func copy(_ text: String?, confirmation: String) {
+    guard let text else { return }
+    history.copy(text)
+    copied = confirmation
+    Task {
+      try? await Task.sleep(for: .seconds(1.5))
+      if copied == confirmation { copied = nil }
+    }
   }
 
   private var finalText: String? { Self.clean(entry.submittedText) }
+  private var processedText: String? { Self.clean(entry.processedText) }
   private var transcript: String? { Self.clean(entry.rawTranscript) }
+  private var leadText: String? { finalText ?? processedText ?? transcript }
 
-  // With the LLM off or failed, the stored output is the transcript itself; don't show it twice.
-  private var processedText: String? {
-    let processed = Self.clean(entry.processedText)
-    return entry.usedRawFallback || processed == transcript ? nil : processed
-  }
+  // Always Final, Polished or Translated, Transcript. A stage that adds nothing says why
+  // instead of repeating the text of the stage before it.
+  private var stages: [Stage] {
+    let llmFailed = entry.usedRawFallback || entry.failureStage == .languageModel
+    var processed = Stage(label: entry.mode == .translate ? "Translated" : "Polished")
+    if llmFailed {
+      processed.placeholder = "LLM failed"
+    } else if processedText == nil {
+      processed.placeholder = "Not available"
+    } else if processedText == transcript {
+      processed.placeholder = "Same as transcript"
+    } else {
+      processed.text = processedText
+    }
 
-  private var processedUnavailableText: String {
-    if entry.usedRawFallback || entry.failureStage == .languageModel { return "LLM failed" }
-    return Self.clean(entry.processedText) == nil ? "Not available" : "Same as transcript"
+    var final = Stage(label: "Final")
+    if finalText == nil {
+      final.placeholder =
+        switch entry.submissionState {
+        case .pending: "Watching for edits…"
+        case .cancelled: "Editing cancelled"
+        case .confirmed, .notObserved, .unknown: "Not captured"
+        }
+    } else if finalText == processedText {
+      let source = entry.mode == .translate ? "translation" : "polished"
+      final.placeholder = "Same as \(processed.text == nil ? "transcript" : source)"
+    } else {
+      final.text = finalText
+    }
+
+    return [
+      final, processed,
+      Stage(label: "Transcript", text: transcript, placeholder: "Not available"),
+    ]
   }
 
   private static func clean(_ text: String?) -> String? {
@@ -168,81 +236,58 @@ private struct HistoryRow: View {
     return trimmed
   }
 
-  private var modeTitle: String {
-    guard entry.mode == .translate, let language = entry.targetLanguage else {
-      return entry.mode.title
+  private var note: (text: String, color: Color)? {
+    switch entry.status {
+    case .failed:
+      return (entry.failureMessage ?? "Failed", .red)
+    case .dismissed:
+      return (entry.failureStage == nil ? "Cancelled" : "No speech", .secondary)
+    case .retrying:
+      return ("Retrying…", .secondary)
+    case .succeeded:
+      if entry.usedRawFallback { return ("Not polished", .orange) }
+      return entry.submissionState == .pending ? ("Watching for edits…", .secondary) : nil
     }
-    return "\(entry.mode.title) → \(language.title)"
   }
 
   private var timestamp: String {
     let time = entry.completedAt.formatted(date: .omitted, time: .shortened)
     return Calendar.current.isDateInToday(entry.completedAt) ? time : "Yesterday \(time)"
   }
-
-  private var submittedUnavailableText: String {
-    switch entry.submissionState {
-    case .pending: "Watching for edits…"
-    case .cancelled: "Editing cancelled"
-    case .confirmed, .notObserved, .unknown: "Not captured"
-    }
-  }
-
-  private var statusSymbol: String {
-    switch entry.status {
-    case .succeeded: "checkmark.circle.fill"
-    case .failed: "exclamationmark.circle.fill"
-    case .dismissed: "xmark.circle.fill"
-    case .retrying: "arrow.clockwise.circle.fill"
-    }
-  }
-
-  private var statusColor: Color {
-    switch entry.status {
-    case .succeeded: .green
-    case .failed: .red
-    case .dismissed: .secondary
-    case .retrying: .accentColor
-    }
-  }
 }
 
-private struct HistoryTextStage: View {
+private struct HistoryStageLine: View {
   let label: String
   let text: String?
-  let unavailableText: String
-  var isPrimary = false
+  let placeholder: String
   let onCopy: () -> Void
+  @State private var isHovered = false
 
   var body: some View {
     HStack(alignment: .firstTextBaseline, spacing: 10) {
       Text(label)
         .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .frame(width: 66, alignment: .trailing)
-
+        .foregroundStyle(.tertiary)
+        .frame(width: 62, alignment: .leading)
       if let text {
-        Text(text)
-          .font(isPrimary ? .body : .callout)
-          .foregroundStyle(isPrimary ? .primary : .secondary)
-          .lineLimit(nil)
-          .fixedSize(horizontal: false, vertical: true)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .textSelection(.enabled)
-
         Button(action: onCopy) {
-          Image(systemName: "doc.on.doc")
+          Text(text)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
-        .controlSize(.small)
-        .help("Copy")
-        .accessibilityLabel("Copy \(label.lowercased()) text")
+        .buttonStyle(.plain)
+        .foregroundStyle(isHovered ? .primary : .secondary)
+        .onHover { isHovered = $0 }
+        .accessibilityHint("Copies this text")
       } else {
-        Text(unavailableText)
-          .font(.callout)
+        Text(placeholder)
           .foregroundStyle(.tertiary)
           .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
+    .font(.callout)
+    .padding(.vertical, 2)
   }
 }
