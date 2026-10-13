@@ -13,8 +13,8 @@ final class AppWindowCoordinator: NSObject, NSWindowDelegate {
     }
 
     let window = makeWindow(
-      title: "Purrr Settings",
-      contentSize: NSSize(width: 700, height: 640),
+      title: "Settings",
+      contentSize: NSSize(width: 620, height: 520),
       autosaveName: "PurrrSettingsWindow"
     )
     window.contentViewController = NSHostingController(

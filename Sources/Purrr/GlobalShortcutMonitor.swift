@@ -99,7 +99,7 @@ final class GlobalShortcutMonitor {
       onRegistrationChange?(nil)
     } else {
       onRegistrationChange?(
-        "Could not reserve \(failed.joined(separator: " and ")). Grant Accessibility so Purrr can override shortcuts used by another app."
+        "Couldn’t reserve \(failed.joined(separator: " and ")). Allow Accessibility or choose another shortcut."
       )
     }
   }

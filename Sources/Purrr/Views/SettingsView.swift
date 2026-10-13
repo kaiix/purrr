@@ -20,7 +20,7 @@ struct SettingsView: View {
   var body: some View {
     TabView(selection: $model.settingsTab) {
       general
-        .tabItem { Label("General", systemImage: "switch.2") }
+        .tabItem { Label("General", systemImage: "gearshape") }
         .tag(SettingsTab.general)
       languageModel
         .tabItem { Label("LLM", systemImage: "sparkles") }
@@ -34,7 +34,7 @@ struct SettingsView: View {
       .tag(SettingsTab.vocabulary)
     }
     .padding(20)
-    .frame(width: 700, height: 640)
+    .frame(width: 620, height: height)
     .onAppear(perform: refreshPermissions)
     .onReceive(
       NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
@@ -53,27 +53,59 @@ struct SettingsView: View {
     }
   }
 
+  // Each tab shows its whole content without scrolling; Vocabulary scrolls its list.
+  private var height: CGFloat {
+    switch model.settingsTab {
+    case .general: 520
+    case .llm: 820
+    case .vocabulary: 640
+    }
+  }
+
   private var general: some View {
     Form {
-      Section("Shortcuts") {
+      Section("Permissions") {
+        permissionRow(
+          title: "Microphone",
+          detail: microphonePermissionDetail,
+          granted: microphoneStatus == .authorized,
+          actionTitle: microphoneStatus == .notDetermined ? "Allow" : "Open Settings"
+        ) {
+          handleMicrophonePermission()
+        }
+        permissionRow(
+          title: "Accessibility",
+          detail: "Needed to insert text and reserve shortcuts.",
+          granted: accessibilityGranted,
+          actionTitle: "Allow"
+        ) {
+          model.requestAccessibilityPermission()
+        }
+      }
+
+      Section {
         LabeledContent("Dictate") {
           ShortcutRecorder(shortcut: settings.dictateShortcut) { candidate in
-            guard candidate != settings.translateShortcut else {
-              shortcutError = "Dictate and Translate must use different shortcuts."
-              return
+            setShortcut(candidate, other: settings.translateShortcut) {
+              settings.dictateShortcut = candidate
             }
-            shortcutError = nil
-            settings.dictateShortcut = candidate
           }
         }
-        LabeledContent("Translate") {
+        LabeledContent {
           ShortcutRecorder(shortcut: settings.translateShortcut) { candidate in
-            guard candidate != settings.dictateShortcut else {
-              shortcutError = "Dictate and Translate must use different shortcuts."
-              return
+            setShortcut(candidate, other: settings.dictateShortcut) {
+              settings.translateShortcut = candidate
             }
-            shortcutError = nil
-            settings.translateShortcut = candidate
+          }
+        } label: {
+          Text("Translate")
+          if !settings.llmEnabled {
+            Text("Needs the LLM")
+          }
+        }
+        Picker("Translate into", selection: $settings.targetLanguage) {
+          ForEach(TranslationLanguage.allCases) { language in
+            Text(language.title).tag(language)
           }
         }
         if let shortcutError {
@@ -85,55 +117,63 @@ struct SettingsView: View {
             .foregroundStyle(.orange)
             .font(.callout)
         }
-        Button("Restore Defaults") {
-          settings.restoreShortcutDefaults()
-        }
-      }
-
-      Section("Translate") {
-        Picker("Target language", selection: $settings.targetLanguage) {
-          ForEach(TranslationLanguage.allCases) { language in
-            Text(language.title).tag(language)
+      } header: {
+        Text("Shortcuts")
+      } footer: {
+        HStack(alignment: .firstTextBaseline) {
+          Text("Press to start, press again to finish. Esc cancels.")
+            .foregroundStyle(.secondary)
+          Spacer()
+          Button("Restore Defaults") {
+            shortcutError = nil
+            settings.restoreShortcutDefaults()
           }
+          .disabled(
+            settings.dictateShortcut == .dictateDefault
+              && settings.translateShortcut == .translateDefault
+          )
         }
       }
 
-      Section("Permissions") {
-        permissionRow(
-          title: "Microphone",
-          detail: microphonePermissionDetail,
-          granted: microphoneStatus == .authorized,
-          actionTitle: microphoneStatus == .notDetermined ? "Request Access" : "Open Settings"
-        ) {
-          handleMicrophonePermission()
-        }
-        permissionRow(
-          title: "Accessibility",
-          detail: "Enables safe text insertion and conflict-free global shortcuts.",
-          granted: accessibilityGranted,
-          actionTitle: "Request Access"
-        ) {
-          model.requestAccessibilityPermission()
+      Section("Privacy") {
+        HStack {
+          Text("Audio is sent to Doubao IME. History stays on this Mac for 24 hours.")
+            .foregroundStyle(.secondary)
+          Spacer()
+          Button("Open History") {
+            model.showHistory()
+          }
         }
       }
     }
     .formStyle(.grouped)
   }
 
+  private func setShortcut(_ candidate: AppShortcut, other: AppShortcut, apply: () -> Void) {
+    guard candidate != other else {
+      shortcutError = "Dictate and Translate need different shortcuts."
+      return
+    }
+    shortcutError = nil
+    apply()
+  }
+
   private var languageModel: some View {
     Form {
       Section {
-        Toggle("Enable LLM processing", isOn: $settings.llmEnabled)
-        Text(
-          settings.llmEnabled
-            ? "Dictate is cleaned up and Translate is available."
-            : "Dictate returns the raw Doubao IME transcript. Translate is unavailable."
-        )
-        .font(.callout)
-        .foregroundStyle(.secondary)
+        Toggle("Polish and translate with an LLM", isOn: $settings.llmEnabled)
+        if !settings.llmEnabled {
+          Text("Off: Dictate inserts the raw transcript. Translate is unavailable.")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+        } else if !settings.isLLMConfigured {
+          Label("Finish setup below.", systemImage: "exclamationmark.circle.fill")
+            .font(.callout)
+            .foregroundStyle(.orange)
+        }
       }
 
-      Section("OpenAI-compatible API") {
+      Section {
         VStack(alignment: .leading, spacing: 6) {
           Text("Base URL")
             .font(.subheadline.weight(.medium))
@@ -162,6 +202,9 @@ struct SettingsView: View {
           .textFieldStyle(.roundedBorder)
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)
+          Text("Stored in Keychain.")
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
 
         VStack(alignment: .leading, spacing: 6) {
@@ -190,53 +233,23 @@ struct SettingsView: View {
             }
             .disabled(!settings.hasLLMCredentials || model.modelListStatus == .loading)
           }
-
-          switch model.modelListStatus {
-          case .idle:
-            Text("Enter the endpoint and API key, then load its available models.")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          case .loading:
-            HStack(spacing: 6) {
-              ProgressView()
-                .controlSize(.small)
-              Text("Loading models…")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-          case .loaded:
-            Text("\(model.availableLLMModels.count) models available")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-          case .failed(let message):
-            Label(message, systemImage: "xmark.circle.fill")
-              .font(.caption)
-              .foregroundStyle(.red)
-              .lineLimit(3)
-          }
         }
 
         HStack {
+          apiStatus
+            .font(.callout)
+          Spacer()
           Button("Test Connection") {
             model.testLLMConnection()
           }
           .disabled(!settings.isLLMConfigured || model.connectionTestStatus == .testing)
-
-          switch model.connectionTestStatus {
-          case .idle:
-            EmptyView()
-          case .testing:
-            ProgressView()
-              .controlSize(.small)
-          case .succeeded:
-            Label("Connected", systemImage: "checkmark.circle.fill")
-              .foregroundStyle(.green)
-          case .failed(let message):
-            Label(message, systemImage: "xmark.circle.fill")
-              .foregroundStyle(.red)
-              .lineLimit(2)
-          }
         }
+      } header: {
+        Text("OpenAI-compatible API")
+      } footer: {
+        Text("Text is sent to this API only when the LLM is on.")
+          .foregroundStyle(.secondary)
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
 
       Section("Prompts") {
@@ -271,14 +284,6 @@ struct SettingsView: View {
           .disabled(selectedPromptIsDefault)
         }
       }
-
-      Section("Privacy") {
-        Text(
-          "Audio is sent to Doubao IME. Recognized text is sent to this endpoint only when LLM processing is enabled or Translate is used. The API key is stored in Keychain."
-        )
-        .font(.callout)
-        .foregroundStyle(.secondary)
-      }
     }
     .formStyle(.grouped)
     .task {
@@ -290,6 +295,34 @@ struct SettingsView: View {
     }
     .onChange(of: settings.apiKey) { _, _ in
       model.invalidateLLMModels()
+    }
+  }
+
+  // One status line: the connection test once it has run, otherwise the model list.
+  @ViewBuilder
+  private var apiStatus: some View {
+    switch (model.connectionTestStatus, model.modelListStatus) {
+    case (.testing, _):
+      ProgressView().controlSize(.small)
+    case (.succeeded, _):
+      Label("Connected", systemImage: "checkmark.circle.fill")
+        .foregroundStyle(.green)
+    case (.failed(let message), _), (.idle, .failed(let message)):
+      Label(message, systemImage: "xmark.circle.fill")
+        .foregroundStyle(.red)
+        .lineLimit(3)
+    case (.idle, .idle):
+      Text("Add a base URL and API key to load models.")
+        .foregroundStyle(.secondary)
+    case (.idle, .loading):
+      HStack(spacing: 6) {
+        ProgressView().controlSize(.small)
+        Text("Loading models…")
+          .foregroundStyle(.secondary)
+      }
+    case (.idle, .loaded):
+      Text("^[\(model.availableLLMModels.count) model](inflect: true)")
+        .foregroundStyle(.secondary)
     }
   }
 
@@ -305,9 +338,9 @@ struct SettingsView: View {
   private var promptHelp: String {
     switch selectedPrompt {
     case .dictate:
-      "Questions and commands in the transcript are polished as source text, never answered."
+      "Questions and commands are polished, not answered."
     case .translate:
-      "Use {{target_language}} for the destination. Transcript instructions are translated, never followed."
+      "{{target_language}} becomes the target language. Instructions are translated, not followed."
     }
   }
 
@@ -338,20 +371,22 @@ struct SettingsView: View {
     action: @escaping () -> Void
   ) -> some View {
     HStack {
-      VStack(alignment: .leading, spacing: 3) {
-        Label(
-          title,
-          systemImage: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill"
-        )
+      Image(systemName: granted ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
         .foregroundStyle(granted ? .green : .orange)
-        if let detail {
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 3) {
+        Text(title)
+        if !granted, let detail {
           Text(detail)
             .font(.caption)
             .foregroundStyle(.secondary)
         }
       }
       Spacer()
-      if !granted {
+      if granted {
+        Text("Allowed")
+          .foregroundStyle(.secondary)
+      } else {
         Button(actionTitle, action: action)
       }
     }
@@ -369,15 +404,15 @@ struct SettingsView: View {
   private var microphonePermissionDetail: String? {
     switch microphoneStatus {
     case .notDetermined:
-      "Request access once so macOS can add Purrr to the Microphone app list."
+      "Needed to record."
     case .denied:
-      "Microphone access is disabled in System Settings."
+      "Turned off in System Settings."
     case .restricted:
-      "Microphone access is restricted on this Mac."
+      "Restricted on this Mac."
     case .authorized:
       nil
     @unknown default:
-      "Microphone permission could not be determined."
+      "Needed to record."
     }
   }
 
