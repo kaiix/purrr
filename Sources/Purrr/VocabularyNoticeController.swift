@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-struct VocabularyNotice {
-  let words: [VocabularyWord]
+enum VocabularyNotice {
+  case added([VocabularyWord])
+  case suggestion(VocabularyCandidate)
 }
 
 enum VocabularyNoticeLayout {
@@ -18,6 +19,7 @@ final class VocabularyNoticeController: ObservableObject {
   @Published private(set) var notice: VocabularyNotice?
   @Published private(set) var errorMessage: String?
   var onEdit: ((UUID) -> Void)?
+  var onReview: ((String) -> Void)?
 
   private let vocabulary: VocabularyStore
   private var pending: [VocabularyNotice] = []
@@ -34,7 +36,22 @@ final class VocabularyNoticeController: ObservableObject {
 
   func enqueue(_ words: [VocabularyWord]) {
     guard !words.isEmpty else { return }
-    pending.append(VocabularyNotice(words: words))
+    pending.append(.added(words))
+    showNext()
+  }
+
+  func enqueue(suggestions: [VocabularyCandidate]) {
+    for candidate in suggestions {
+      // One prompt per spelling while a notice is already displayed or queued.
+      let alreadyQueued = (pending + [notice].compactMap { $0 }).contains {
+        if case .suggestion(let other) = $0 {
+          return VocabularyStore.key(other.correctedTerm)
+            == VocabularyStore.key(candidate.correctedTerm)
+        }
+        return false
+      }
+      if !alreadyQueued { pending.append(.suggestion(candidate)) }
+    }
     showNext()
   }
 
@@ -56,9 +73,9 @@ final class VocabularyNoticeController: ObservableObject {
   }
 
   func undo() {
-    guard let notice else { return }
+    guard case .added(let words) = notice else { return }
     do {
-      try vocabulary.undoAutoAdded(notice.words)
+      try vocabulary.undoAutoAdded(words)
       dismiss()
     } catch {
       errorMessage = error.localizedDescription
@@ -67,9 +84,30 @@ final class VocabularyNoticeController: ObservableObject {
   }
 
   func edit() {
-    guard let id = notice?.words.first?.id else { return }
+    guard let notice else { return }
     dismiss()
-    onEdit?(id)
+    switch notice {
+    case .added(let words):
+      if let id = words.first?.id { onEdit?(id) }
+    case .suggestion(let candidate):
+      onReview?(candidate.id)
+    }
+  }
+
+  func addSuggestion() {
+    guard case .suggestion(let candidate) = notice else { return }
+    // Recheck validity after the notice's network delay or queue wait.
+    guard vocabulary.candidates.contains(candidate) else {
+      dismiss()
+      return
+    }
+    do {
+      try vocabulary.confirm(candidate, term: candidate.correctedTerm)
+      dismiss()
+    } catch {
+      errorMessage = error.localizedDescription
+      scheduleDismissal()
+    }
   }
 
   func dismiss() {
@@ -83,9 +121,17 @@ final class VocabularyNoticeController: ObservableObject {
   private func showNext() {
     guard !isSuspended, notice == nil else { return }
     while !pending.isEmpty {
-      let words = pending.removeFirst().words.filter { vocabulary.words.contains($0) }
-      guard !words.isEmpty else { continue }
-      notice = VocabularyNotice(words: words)
+      let next = pending.removeFirst()
+      guard vocabulary.collectsEdits else { continue }
+      switch next {
+      case .added(let batch):
+        let words = batch.filter { vocabulary.words.contains($0) }
+        guard !words.isEmpty else { continue }
+        notice = .added(words)
+      case .suggestion(let candidate):
+        guard vocabulary.candidates.contains(candidate) else { continue }
+        notice = next
+      }
       show()
       break
     }

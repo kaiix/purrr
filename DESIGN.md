@@ -207,6 +207,8 @@ History is a recovery ledger whose main job is copying text back out. The window
 
 ### Vocabulary Notice
 
+Uncertain edits use the same capsule with “Possible word”, Add, and Review. They remain suggestions, never automatic words: Add confirms the spelling, while Review opens and focuses its editable Suggestions row. Timeout preserves the suggestion without adding it; restarts restore suggestions without replaying notices. A plain-language “Possible name — needs confirmation” label distinguishes these rows from approved corrections.
+
 Word collection uses a nonactivating 380-by-44-point charcoal capsule at the transcription strip's lower-edge position, with one line naming the added spelling and a compact Undo action. Clicking the line activates Settings at the corresponding spelling field. It appears only after LLM approval and a successful local save and yields to active transcription. It dismisses itself after seven seconds, pausing while hovered, so it needs no Close control. Multiple words from one edit share a notice; Undo removes only that batch if it has not subsequently changed. This wider post-edit feedback surface does not resize the fixed recording strip or introduce exterior shadows. Saved words remain in the native Vocabulary list, with their source marked and their complete spelling editable.
 
 ### Transcription Strip

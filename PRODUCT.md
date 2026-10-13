@@ -42,6 +42,7 @@ Purrr combines shortcut-first voice input, Doubao IME recognition, optional brin
 - Initial translation targets are English and Simplified Chinese.
 - One Use vocabulary switch controls learning and spelling guidance. New Dictate edits are reviewed by the configured LLM before clear name or fixed-term corrections are automatically added with a reversible notice. During Dictate or Translate processing, the full eligible saved-word list is sent as reference data in the existing LLM request, with fixed semantic correction rules. Suggestions and unchecked legacy automatic words are excluded; manually saving a legacy spelling confirms it. LLM-off Dictate remains raw. Vocabulary never alters the stored raw transcript or synchronizes with Doubao IME. Saved words persist until deleted; review evidence follows the 24-hour history lifetime. Prompt templates remain editable, with read-only vocabulary instructions and a request preview that sends nothing.
 - The current system default microphone is used in v1.
+- Uncertain vocabulary edits remain possible-word suggestions requiring explicit confirmation. Newly reviewed candidates show Add and Review actions; retained suggestions recover after restart without replaying notices or affecting output until accepted. Ordinary edits remain excluded.
 - Only Doubao IME recognition is implemented; there is no provider selection or local model management.
 
 ## Brand Commitments

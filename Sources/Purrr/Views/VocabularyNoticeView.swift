@@ -10,21 +10,31 @@ struct VocabularyNoticeView: View {
           Button {
             controller.edit()
           } label: {
-            Text(controller.errorMessage == nil ? message(notice) : "Couldn’t undo. Click to edit.")
-              .font(.system(size: 13, weight: .medium))
-              .lineLimit(1)
-              .truncationMode(.middle)
-              .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-              .contentShape(Rectangle())
+            Text(
+              controller.errorMessage == nil ? message(notice) : recoveryMessage(notice)
+            )
+            .font(.system(size: 13, weight: .medium))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
           }
           .buttonStyle(.plain)
-          .help(controller.errorMessage ?? "Edit in Vocabulary")
+          .help(controller.errorMessage ?? "\(message(notice)). Open in Vocabulary")
           .accessibilityLabel(controller.errorMessage ?? message(notice))
           .accessibilityHint("Opens Vocabulary to edit")
 
           if controller.errorMessage == nil {
-            Button("Undo") { controller.undo() }
-              .controlSize(.small)
+            switch notice {
+            case .added:
+              Button("Undo") { controller.undo() }
+                .controlSize(.small)
+            case .suggestion:
+              Button("Add") { controller.addSuggestion() }
+                .controlSize(.small)
+              Button("Review") { controller.edit() }
+                .controlSize(.small)
+            }
           }
         }
         .foregroundStyle(.white)
@@ -41,9 +51,21 @@ struct VocabularyNoticeView: View {
   }
 
   private func message(_ notice: VocabularyNotice) -> String {
-    guard notice.words.count == 1, let word = notice.words.first else {
-      return "\(notice.words.count) words added to vocabulary"
+    switch notice {
+    case .added(let words):
+      guard words.count == 1, let word = words.first else {
+        return "\(words.count) words added to vocabulary"
+      }
+      return "“\(word.term)” added to vocabulary"
+    case .suggestion(let candidate):
+      return "Possible word: “\(candidate.correctedTerm)”"
     }
-    return "“\(word.term)” added to vocabulary"
+  }
+
+  private func recoveryMessage(_ notice: VocabularyNotice) -> String {
+    switch notice {
+    case .added: return "Couldn’t undo. Click to edit."
+    case .suggestion: return "Couldn’t add. Click to review."
+    }
   }
 }

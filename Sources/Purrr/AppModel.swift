@@ -35,6 +35,7 @@ final class AppModel: ObservableObject {
   @Published private(set) var shortcutWarning: String?
   @Published var settingsTab: SettingsTab = .general
   @Published var vocabularyEditRequest: UUID?
+  @Published var vocabularySuggestionRequest: String?
 
   let settings: AppSettings
   let history: HistoryStore
@@ -77,6 +78,12 @@ final class AppModel: ObservableObject {
 
     vocabularyNotices.onEdit = { [weak self] id in
       self?.editVocabularyWord(id: id)
+    }
+    vocabularyNotices.onReview = { [weak self] id in
+      guard let self else { return }
+      self.settingsTab = .vocabulary
+      self.vocabularySuggestionRequest = id
+      self.showSettings()
     }
     $phase.sink { [weak vocabularyNotices] phase in
       vocabularyNotices?.setSuspended(phase != .idle)
@@ -218,6 +225,11 @@ final class AppModel: ObservableObject {
           decisions, proposals: proposals, automaticallyAdd: automaticallyAdd
         )
         self.vocabularyNotices.enqueue(added)
+        let proposalIDs = Set(proposals.map(\.id))
+        self.vocabularyNotices.enqueue(
+          suggestions: self.vocabulary.candidates.filter {
+            proposalIDs.contains($0.id) && !$0.isSemanticallyReviewed
+          })
       } catch {
         if !Task.isCancelled {
           failure =

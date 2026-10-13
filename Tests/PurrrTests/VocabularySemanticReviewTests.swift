@@ -56,12 +56,12 @@ final class VocabularySemanticReviewTests: XCTestCase {
   }
 
   @MainActor
-  func testOrdinaryAndUncertainEditsDisappearFromReviewWithoutBeingCollected() throws {
+  func testUncertainEditsStayAvailableForConfirmationWithoutAutomaticCollection() throws {
     let root = temporaryStorage()
     defer { try? FileManager.default.removeItem(at: root) }
     let store = VocabularyStore(storageURL: root)
     let value = entry(before: "这里应该说清楚", after: "这里定义说清楚")
-    let ambiguous = entry(before: "Open TypeList please", after: "Open typeless please")
+    let ambiguous = entry(before: "你知道 PSTalk 吗？", after: "你知道 pastok 吗？")
     let now = value.completedAt.addingTimeInterval(1)
     store.refresh(from: [value, ambiguous], now: now)
     XCTAssertFalse(store.unreviewedCandidates.isEmpty)
@@ -76,8 +76,20 @@ final class VocabularySemanticReviewTests: XCTestCase {
       decisions, proposals: proposals, automaticallyAdd: true, now: now)
     XCTAssertTrue(added.isEmpty)
     XCTAssertTrue(store.words.isEmpty)
-    XCTAssertTrue(store.candidates.isEmpty)
+    XCTAssertEqual(store.candidates.map(\.correctedTerm), ["pastok"])
+    XCTAssertFalse(try XCTUnwrap(store.candidates.first).isSemanticallyReviewed)
+    XCTAssertTrue(store.processingTerms.isEmpty)
     XCTAssertTrue(store.unreviewedCandidates.isEmpty)
+
+    let reloaded = VocabularyStore(storageURL: root)
+    reloaded.refresh(from: [value, ambiguous], now: now)
+    XCTAssertEqual(reloaded.candidates.map(\.correctedTerm), ["pastok"])
+    XCTAssertTrue(reloaded.unreviewedCandidates.isEmpty)
+    try reloaded.confirm(try XCTUnwrap(reloaded.candidates.first), term: "pastok")
+    XCTAssertEqual(reloaded.processingTerms, ["pastok"])
+    XCTAssertEqual(reloaded.words.first?.source, .confirmedEdit)
+    XCTAssertEqual(reloaded.words.first?.reviewedByLLM, false)
+    XCTAssertTrue(reloaded.candidates.isEmpty)
   }
 
   @MainActor
@@ -145,15 +157,46 @@ final class VocabularySemanticReviewTests: XCTestCase {
     let reloaded = VocabularyStore(storageURL: root)
     reloaded.refresh(from: revisions + [pending], now: now)
     XCTAssertEqual(reloaded.unreviewedCandidates.map(\.historyID), [pending.id])
-    XCTAssertEqual(reloaded.candidates.map(\.correctedTerm), ["typeless"])
+    XCTAssertEqual(Set(reloaded.candidates.map(\.correctedTerm)), ["typeless", "auday"])
     XCTAssertEqual(reloaded.words.map(\.term), ["ChatGPT"])
-    try reloaded.confirm(try XCTUnwrap(reloaded.candidates.first), term: "typeless")
+    try reloaded.confirm(
+      try XCTUnwrap(reloaded.candidates.first { $0.correctedTerm == "typeless" }), term: "typeless")
 
     let confirmed = VocabularyStore(storageURL: root)
     confirmed.refresh(from: revisions + [pending], now: now)
     XCTAssertEqual(confirmed.unreviewedCandidates.map(\.historyID), [pending.id])
-    XCTAssertTrue(confirmed.candidates.isEmpty)
+    XCTAssertEqual(confirmed.candidates.map(\.correctedTerm), ["auday"])
     XCTAssertEqual(Set(confirmed.words.map(\.term)), ["ChatGPT", "typeless"])
+  }
+
+  @MainActor
+  func testDeletingOrDismissingAWordDoesNotSuppressNewUncertainEvidence() throws {
+    let root = temporaryStorage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = VocabularyStore(storageURL: root)
+    try store.add("pastok")
+    try store.delete(try XCTUnwrap(store.words.first))
+    let old = entry(before: "你知道 PSTalk 吗？", after: "你知道 pastok 吗？")
+    let now = old.completedAt.addingTimeInterval(1)
+    store.refresh(from: [old], now: now)
+    let proposal = try XCTUnwrap(store.unreviewedCandidates.first)
+    _ = try store.applyReview(
+      [VocabularyReviewDecision(candidateID: proposal.id, action: .uncertain, term: nil)],
+      proposals: [proposal], automaticallyAdd: true, now: now)
+    try store.dismiss(try XCTUnwrap(store.candidates.first))
+
+    let fresh = entry(before: "你知道 PSTalk 吗？", after: "你知道 pastok 吗？")
+    let reloaded = VocabularyStore(storageURL: root)
+    reloaded.refresh(from: [old, fresh], now: now)
+    XCTAssertEqual(reloaded.unreviewedCandidates.map(\.historyID), [fresh.id])
+    let freshProposal = try XCTUnwrap(reloaded.unreviewedCandidates.first)
+    _ = try reloaded.applyReview(
+      [VocabularyReviewDecision(candidateID: freshProposal.id, action: .uncertain, term: nil)],
+      proposals: [freshProposal], automaticallyAdd: true, now: now)
+    XCTAssertEqual(reloaded.candidates.map(\.historyID), [fresh.id])
+    XCTAssertTrue(reloaded.processingTerms.isEmpty)
+    try reloaded.add("pastok")
+    XCTAssertTrue(reloaded.candidates.isEmpty, "Existing words must not be offered again")
   }
 
   @MainActor
@@ -178,9 +221,10 @@ final class VocabularySemanticReviewTests: XCTestCase {
       try reloaded.setCollectsEdits(true)
       reloaded.refresh(from: [revision], now: now)
       XCTAssertTrue(reloaded.unreviewedCandidates.isEmpty)
-      XCTAssertTrue(reloaded.candidates.isEmpty)
+      XCTAssertEqual(reloaded.candidates.map(\.correctedTerm), ["typeless"])
 
       reloaded.refresh(from: expires ? [revision] : [], now: expires ? revision.expiresAt : now)
+      XCTAssertTrue(reloaded.candidates.isEmpty)
       let persisted = try String(
         contentsOf: root.appendingPathComponent("vocabulary.json"), encoding: .utf8)
       XCTAssertFalse(

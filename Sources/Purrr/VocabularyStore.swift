@@ -268,7 +268,7 @@ final class VocabularyStore: ObservableObject {
     return cleaned
   }
 
-  private static func key(_ term: String) -> String {
+  static func key(_ term: String) -> String {
     term.split(whereSeparator: \.isWhitespace).joined(separator: " ").lowercased()
   }
 
@@ -304,12 +304,13 @@ final class VocabularyStore: ObservableObject {
       collectsEdits
       ? observedCandidates.compactMap { proposal in
         guard !snapshot.dismissedCandidateIDs.contains(proposal.id),
-          let decision = snapshot.reviewResults[proposal.id], decision.action == .termCorrection,
-          let term = decision.term, !existing.contains(Self.key(term))
+          let decision = snapshot.reviewResults[proposal.id], decision.action != .ordinaryEdit
         else { return nil }
+        let term = decision.term ?? proposal.correctedTerm
+        guard !existing.contains(Self.key(term)) else { return nil }
         var reviewed = proposal
         reviewed.correctedTerm = term
-        reviewed.isSemanticallyReviewed = true
+        reviewed.isSemanticallyReviewed = decision.action == .termCorrection
         return reviewed
       } : []
   }

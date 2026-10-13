@@ -11,19 +11,23 @@ struct VocabularyView: View {
   var llmAvailable: Bool
   var onReview: () -> Void
   @Binding private var editRequest: UUID?
+  @Binding private var suggestionRequest: String?
   @State private var page: Page = .words
   @State private var editingWordID: UUID?
+  @State private var reviewingCandidateID: String?
   @State private var newTerm = ""
   @State private var errorMessage: String?
 
   init(
     vocabulary: VocabularyStore, editRequest: Binding<UUID?> = .constant(nil),
+    suggestionRequest: Binding<String?> = .constant(nil),
     llmAvailable: Bool = false, onReview: @escaping () -> Void = {}
   ) {
     self.vocabulary = vocabulary
     self.llmAvailable = llmAvailable
     self.onReview = onReview
     _editRequest = editRequest
+    _suggestionRequest = suggestionRequest
   }
 
   var body: some View {
@@ -90,8 +94,12 @@ struct VocabularyView: View {
       .formStyle(.grouped)
       .onAppear {
         if let editingWordID { reader.scrollTo(editingWordID, anchor: .center) }
+        if let reviewingCandidateID { reader.scrollTo(reviewingCandidateID, anchor: .center) }
       }
       .onChange(of: editingWordID) { _, id in
+        if let id { reader.scrollTo(id, anchor: .center) }
+      }
+      .onChange(of: reviewingCandidateID) { _, id in
         if let id { reader.scrollTo(id, anchor: .center) }
       }
     }
@@ -100,6 +108,12 @@ struct VocabularyView: View {
       editingWordID = id
       page = .words
       editRequest = nil
+    }
+    .onChange(of: suggestionRequest, initial: true) { _, id in
+      guard let id else { return }
+      page = .review
+      reviewingCandidateID = id
+      suggestionRequest = nil
     }
   }
 
@@ -150,16 +164,20 @@ struct VocabularyView: View {
       if vocabulary.candidates.isEmpty {
         Text(
           vocabulary.collectsEdits
-            ? "No suggestions. Corrections the LLM approves appear here." : "Collection is off."
+            ? "No suggestions. Possible names from your edits appear here." : "Vocabulary is off."
         )
         .foregroundStyle(.secondary)
       } else {
         ForEach(vocabulary.candidates) { candidate in
-          VocabularyCandidateRow(candidate: candidate, vocabulary: vocabulary)
+          VocabularyCandidateRow(
+            candidate: candidate, vocabulary: vocabulary,
+            focusRequested: reviewingCandidateID == candidate.id
+          )
+          .id(candidate.id)
         }
       }
     } footer: {
-      Text("Unchecked edits are deleted after 24 hours.")
+      Text("Suggestions need your confirmation and expire with their history after 24 hours.")
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -266,20 +284,35 @@ private struct VocabularyCandidateRow: View {
   @State private var term: String
   @State private var errorMessage: String?
   @State private var showsContext = false
+  var focusRequested: Bool
+  @FocusState private var termIsFocused: Bool
 
-  init(candidate: VocabularyCandidate, vocabulary: VocabularyStore) {
+  init(
+    candidate: VocabularyCandidate, vocabulary: VocabularyStore, focusRequested: Bool = false
+  ) {
     self.candidate = candidate
     self.vocabulary = vocabulary
+    self.focusRequested = focusRequested
     _term = State(initialValue: candidate.correctedTerm)
   }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
+      if !candidate.isSemanticallyReviewed {
+        Text("Possible name — needs confirmation")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
       HStack(spacing: 8) {
         TextField("Word", text: $term)
           .labelsHidden()
           .textFieldStyle(.roundedBorder)
           .accessibilityLabel("Suggested word")
+          .focused($termIsFocused)
+          .onAppear { if focusRequested { termIsFocused = true } }
+          .onChange(of: focusRequested) { _, requested in
+            if requested { termIsFocused = true }
+          }
         Button("Add") {
           perform { try vocabulary.confirm(candidate, term: term) }
         }

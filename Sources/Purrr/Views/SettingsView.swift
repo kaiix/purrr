@@ -19,6 +19,7 @@ struct SettingsView: View {
         .tag(SettingsTab.llm)
       VocabularyView(
         vocabulary: model.vocabulary, editRequest: $model.vocabularyEditRequest,
+        suggestionRequest: $model.vocabularySuggestionRequest,
         llmAvailable: settings.llmEnabled && settings.isLLMConfigured,
         onReview: { model.reviewVocabularyEdits() }
       )

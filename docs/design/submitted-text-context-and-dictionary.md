@@ -302,7 +302,11 @@ Submitted text:  Do you know typeless?
 Candidate:        TypeList -> typeless
 ```
 
-The current increment adds only LLM-approved corrections from new outcomes, with Undo and click-to-edit. It does not use a model-reported numeric confidence threshold. Ordinary and uncertain decisions are excluded from automatic collection and the approved-proposal list; eligible saved words separately guide semantic spelling corrections during LLM processing.
+The current increment automatically adds only LLM-approved corrections from new outcomes, with Undo and click-to-edit. It does not use a model-reported numeric confidence threshold. Ordinary edits remain hidden. Uncertain decisions appear as editable suggestions labeled “Possible name — needs confirmation”, but are never automatically collected or sent as vocabulary during text processing. A newly reviewed uncertain edit shows a nonactivating “Possible word” notice with Add and Review actions. Review opens the corresponding suggestion field in Settings; dismissing or ignoring the notice does not add the word. Eligible saved words separately guide semantic spelling corrections during LLM processing.
+
+Uncertain suggestions recover from existing persisted decisions without another model request, using the corrected fragment from retained history as the proposed spelling. Loading history does not replay notices. Suggestions expire with their history; confirmed words remain until deleted. Deletion and dismissal suppress only previously handled evidence, not a future correction in a different history entry. No classification prompt or automatic acceptance threshold was relaxed for this change.
+
+Verification on 2026-10-13: 45 automated tests passed. Coverage includes uncertain suggestions surviving reload without another check, exclusion from processing until explicit acceptance, ordinary edits remaining hidden, deletion/dismissal allowing new evidence, and suggestion expiry. An isolated native preview using synthetic `PSTalk` → `pastok` evidence verified possible-word notice rendering, Review opening and selecting the suggestion field, and Add moving the spelling into Words. No live model requests or production vocabulary changes were needed for this verification.
 
 ### Mode-specific learning
 
