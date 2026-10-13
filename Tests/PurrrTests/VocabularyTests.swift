@@ -156,6 +156,7 @@ final class VocabularyTests: XCTestCase {
     let added = try reviewAndCollect(store, entry: revision, now: now)
     XCTAssertEqual(added.map(\.term), ["typeless", "auday"])
     XCTAssertTrue(added.allSatisfy { $0.source == .autoAdded })
+    XCTAssertEqual(Set(store.processingTerms), ["PostgreSQL", "typeless", "auday"])
     XCTAssertEqual(VocabularyStore(storageURL: root).words.count, 3)
     XCTAssertTrue(try reviewAndCollect(store, entry: revision, now: now).isEmpty)
 

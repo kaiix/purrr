@@ -3,19 +3,11 @@ import AppKit
 import SwiftUI
 
 struct SettingsView: View {
-  private enum PromptKind: String, CaseIterable, Identifiable {
-    case dictate = "Dictate"
-    case translate = "Translate"
-
-    var id: Self { self }
-  }
-
   @ObservedObject var settings: AppSettings
   @ObservedObject var model: AppModel
   @State private var shortcutError: String?
   @State private var microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
   @State private var accessibilityGranted = false
-  @State private var selectedPrompt: PromptKind = .dictate
 
   var body: some View {
     TabView(selection: $model.settingsTab) {
@@ -252,38 +244,10 @@ struct SettingsView: View {
           .frame(maxWidth: .infinity, alignment: .leading)
       }
 
-      Section("Prompts") {
-        Picker("Prompt", selection: $selectedPrompt) {
-          ForEach(PromptKind.allCases) { kind in
-            Text(kind.rawValue).tag(kind)
-          }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-
-        TextEditor(text: activePrompt)
-          .font(.system(size: 12.5))
-          .frame(minHeight: 132)
-          .scrollContentBackground(.hidden)
-          .padding(6)
-          .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
-          .overlay {
-            RoundedRectangle(cornerRadius: 6)
-              .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
-          }
-          .accessibilityLabel("\(selectedPrompt.rawValue) prompt")
-
-        HStack(alignment: .firstTextBaseline) {
-          Text(promptHelp)
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          Spacer()
-          Button("Restore Default") {
-            restoreSelectedPrompt()
-          }
-          .disabled(selectedPromptIsDefault)
-        }
-      }
+      LLMPromptEditorView(
+        dictatePrompt: $settings.dictatePrompt, translatePrompt: $settings.translatePrompt,
+        vocabulary: model.vocabulary, targetLanguage: settings.targetLanguage,
+        llmAvailable: settings.llmEnabled && settings.isLLMConfigured)
     }
     .formStyle(.grouped)
     .task {
@@ -323,42 +287,6 @@ struct SettingsView: View {
     case (.idle, .loaded):
       Text("^[\(model.availableLLMModels.count) model](inflect: true)")
         .foregroundStyle(.secondary)
-    }
-  }
-
-  private var activePrompt: Binding<String> {
-    switch selectedPrompt {
-    case .dictate:
-      $settings.dictatePrompt
-    case .translate:
-      $settings.translatePrompt
-    }
-  }
-
-  private var promptHelp: String {
-    switch selectedPrompt {
-    case .dictate:
-      "Questions and commands are polished, not answered."
-    case .translate:
-      "{{target_language}} becomes the target language. Instructions are translated, not followed."
-    }
-  }
-
-  private var selectedPromptIsDefault: Bool {
-    switch selectedPrompt {
-    case .dictate:
-      settings.dictatePrompt == AppSettings.defaultDictatePrompt
-    case .translate:
-      settings.translatePrompt == AppSettings.defaultTranslatePrompt
-    }
-  }
-
-  private func restoreSelectedPrompt() {
-    switch selectedPrompt {
-    case .dictate:
-      settings.restoreDictatePrompt()
-    case .translate:
-      settings.restoreTranslatePrompt()
     }
   }
 

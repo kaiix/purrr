@@ -261,15 +261,27 @@ final class VocabularySemanticReviewTests: XCTestCase {
     let store = VocabularyStore(storageURL: root)
     XCTAssertEqual(store.words.first?.term, "ordinary phrase")
     XCTAssertNil(store.words.first?.reviewedByLLM)
+    XCTAssertTrue(store.processingTerms.isEmpty)
+    try store.update(try XCTUnwrap(store.words.first), term: "typeless")
+    let confirmed = VocabularyStore(storageURL: root)
+    XCTAssertEqual(confirmed.processingTerms, ["typeless"])
+    XCTAssertEqual(confirmed.words.first?.source, .manual)
+    XCTAssertNil(confirmed.words.first?.reviewedByLLM)
+    try confirmed.setCollectsEdits(false)
+    XCTAssertTrue(confirmed.processingTerms.isEmpty)
+    try confirmed.setCollectsEdits(true)
+    XCTAssertEqual(confirmed.processingTerms, ["typeless"])
   }
 
   func testReviewRequestUsesConfiguredAPIAndSeparateUntrustedPayload() async throws {
     let recorder = RequestRecorder()
-    let (processor, configuration) = client(
+    let (processor, baseConfiguration) = client(
       recorder: recorder,
       response: """
         {"decisions":[{"id":0,"action":"term_correction","term":"typeless"}]}
         """)
+    var configuration = baseConfiguration
+    configuration.vocabulary = ["INDEPENDENT_PROCESSING_WORD"]
     let proposal = candidate(before: "TypeList", after: "typeless")
     let decisions = try await processor.reviewVocabulary([proposal], configuration: configuration)
     XCTAssertEqual(decisions.first?.term, "typeless")
@@ -289,6 +301,38 @@ final class VocabularySemanticReviewTests: XCTestCase {
     XCTAssertEqual(edits[0]["after_context"] as? String, proposal.correctedContext)
     XCTAssertFalse(
       String(decoding: request.body, as: UTF8.self).contains(proposal.historyID.uuidString))
+    XCTAssertFalse(
+      String(decoding: request.body, as: UTF8.self).contains("INDEPENDENT_PROCESSING_WORD"))
+  }
+
+  func testDictateSendsVocabularyAndSourceInTheSameRequest() async throws {
+    let recorder = RequestRecorder()
+    let (processor, baseConfiguration) = client(recorder: recorder, response: "Open auday.")
+    var configuration = baseConfiguration
+    configuration.vocabulary = ["auday", "typeless"]
+    _ = try await processor.dictate("Open the AllDay app.", configuration: configuration)
+    let request = try XCTUnwrap(recorder.last)
+    let body = try XCTUnwrap(JSONSerialization.jsonObject(with: request.body) as? [String: Any])
+    let messages = try XCTUnwrap(body["messages"] as? [[String: String]])
+    let payload = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(messages[1]["content"]!.utf8)) as? [String: Any])
+    XCTAssertEqual(payload["source_text"] as? String, "Open the AllDay app.")
+    XCTAssertEqual(payload["vocabulary"] as? [String], ["auday", "typeless"])
+    XCTAssertEqual(messages.count, 2)
+    XCTAssertTrue(messages[0]["content"]!.hasPrefix("UNRELATED_CUSTOM_PROMPT"))
+  }
+
+  func testBlankPromptWithNoVocabularyReturnsRawTextWithoutARequest() async throws {
+    let recorder = RequestRecorder()
+    let (processor, baseConfiguration) = client(recorder: recorder, response: "Unexpected response")
+    let configuration = LLMConfiguration(
+      baseURL: baseConfiguration.baseURL, apiKey: baseConfiguration.apiKey,
+      model: baseConfiguration.model,
+      dictatePrompt: "", translatePrompt: baseConfiguration.translatePrompt)
+    let original = "um, um,  raw text\nwith spacing"
+    let output = try await processor.dictate(original, configuration: configuration)
+    XCTAssertEqual(output, original)
+    XCTAssertNil(recorder.last)
   }
 
   func testDictateRequestRetainsItsSourceTextBoundary() async throws {

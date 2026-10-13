@@ -62,7 +62,7 @@ LLM processing is off by default. With it off, Dictate returns the original tran
 
 Speech recognition requires an internet connection: microphone audio is sent to Doubao IME through an unofficial integration based on [Koe](https://github.com/missuo/koe). This is not an offline recognizer or the public Volcengine ASR API, and service changes may break recognition.
 
-When LLM processing is used, transcripts are sent to your configured API provider. The API key is stored in macOS Keychain. Local history expires after 24 hours; expired entries are removed on launch and periodically while the app runs. See [PRIVACY.md](PRIVACY.md) for storage locations, remote processing, and deletion details.
+When LLM processing is used, transcripts are sent to your configured API provider. Use vocabulary enables semantic spelling guidance from saved words in the same processing request, plus learning from bounded edit snippets. It does not update Doubao IME's lexicon. The API key is stored in macOS Keychain. Local history expires after 24 hours; saved words remain until deleted. See [PRIVACY.md](PRIVACY.md) for storage locations, remote processing, and deletion details.
 
 Purrr is not affiliated with Doubao or ByteDance. Its source license does not grant permission to use their services or guarantee provider-side data retention. Review provider terms and policies before use, and do not record sensitive material.
 

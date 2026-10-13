@@ -1,6 +1,6 @@
 # Final Edited Text, Conversation Context, and Dictionary Plan
 
-Status: Accepted implementation plan; generic final-edit tracking and LLM-reviewed collection-only vocabulary implemented
+Status: Generic final-edit tracking, persistent semantic learning, and vocabulary-guided LLM processing implemented
 
 Date: 2026-10-13
 
@@ -224,9 +224,9 @@ Purrr does not capture a complete conversation. It normally lacks assistant repl
 
 ## Local Dictionary Learning
 
-### Current increment: collect and review, without correction
+### Current increment: semantic learning and correction
 
-Vocabulary deliberately does not affect ASR, Dictate processing, Translate processing, or text insertion. It does not synchronize words to Doubao IME or inject the saved vocabulary into processing prompts. Semantic review does make a separate request to the configured LLM with bounded before/after edit snippets.
+Vocabulary guides Dictate and Translate processing through the existing LLM request when enabled. It never changes raw ASR text, performs deterministic string replacement, or synchronizes words to Doubao IME. Semantic learning remains a separate request with bounded before/after edit snippets after user editing ends. The one Use vocabulary switch controls both learning and correction, retaining the existing persisted collection preference for compatibility; disabling it preserves words and completed review progress.
 
 Settings includes a native Vocabulary tab with Words and Suggestions. Users can add, edit, or delete words manually. Raw differences are not displayed as term proposals. New eligible Dictate final-edit outcomes request semantic review when both collection and the configured LLM are enabled. Only approved same-entity spelling corrections are automatically added. Older edits are reviewed only when the user selects Check in Suggestions; approved proposals then require manual acceptance. Loading or refreshing history never sends model requests or adds words automatically. LLM-off, incomplete configuration, ordinary edits, uncertain decisions, failed requests, and invalid responses never fall back to raw-diff automatic addition.
 
@@ -262,9 +262,17 @@ Every successful batch is saved atomically even when it adds no words. Invalid r
 
 Verification on 2026-10-13: 37 automated tests passed, including synthetic OpenAI-compatible request inspection, response validation, exclusion of ordinary and uncertain decisions, stale-evidence checks, legacy storage, and retryability after a failed save. Persistence regressions exercise reloads after mixed decisions, unaccepted suggestions, manual-review save failure, disabled collection, out-of-order batches, changed edits, deletion, and expiry. An earlier isolated native preview verified the pending-review screen and the transition from two synthetic edits to one approved term. These checks use supplied model responses, not real inference; accuracy of the configured model still needs observation during actual use. No production history, credentials, audio, or live provider requests were used for verification.
 
-### Future use of confirmed vocabulary
+### Using confirmed vocabulary
 
-When correction is enabled in a later increment, a small vocabulary should be provided to the LLM as a complete list of enabled canonical terms. Do not gate participation on an exact match against current ASR text or known misspellings: pronunciation and recognition output vary across sessions. Vocabulary is spelling guidance, not a command to replace every similar ordinary phrase. For example, `auday` must not force “I worked all day” into a product-name reference. Explicit deterministic replacement rules, if added, are a separate opt-in capability. A large vocabulary may later need a bounded, high-recall selection strategy; a retrieval framework is not needed for the collection-only increment.
+Each processing request snapshots the full eligible saved-word list. Manual words, explicitly confirmed edits, and LLM-reviewed automatic words participate; unaccepted Suggestions and legacy unchecked automatic words do not. Editing and saving a legacy automatic word marks its spelling as manually confirmed rather than pretending it was LLM-reviewed. Do not gate participation on an exact ASR match or known misspelling: pronunciation and recognition output vary across sessions. A large vocabulary may later need a bounded, high-recall selection strategy; this increment has no retrieval framework or silent truncation.
+
+`TextProcessingPrompt` assembles the user's unchanged template, fixed vocabulary rules when terms are present, and the source-data boundary. JSON input contains `source_text` and optional `vocabulary`; spellings are data, not system instructions. No `{{vocabulary}}` placeholder is required. Translate resolves the existing `{{target_language}}` placeholder and corrects source-term understanding while translating in the same request; it does not pass through Dictate. Proper/product names use canonical spellings, while conventional concepts translate naturally unless they are literal labels or code. A blank Dictate template permits spelling corrections only; with no vocabulary, it returns the original input without a model request. An empty Translate template still performs a minimal translation task. Dictate with the LLM disabled remains raw, and existing failure fallbacks are unchanged.
+
+Correction is semantic spelling guidance, not a command to replace every similar phrase. For example, `auday` must not change “I worked all day.” Clearly distinct entities remain themselves. Unknown or ambiguous matches should be preserved. The model must not answer or execute spoken requests, or delete them merely because they resemble prompt instructions. Corrections enter the processed stage; raw transcript and Final continue to support comparison. Learning still compares processed text with Final, preventing the model's own changes from being learned as user corrections.
+
+The native LLM settings keep one editable Dictate/Translate template editor, add vocabulary inclusion status, and offer read-only Vocabulary Instructions and Preview Request sheets. The preview uses an illustrative transcript with the current language/template/eligible list and the same assembler as live requests; its input JSON is formatted for readability. It never reads history, sends a model request, or displays credentials. Built-in rules remain inspectable even while vocabulary is disabled. Restore Default changes only the selected user template, not vocabulary or built-in rules.
+
+Prompt testing preceded workflow and UI integration. See [the synthetic live evaluation](../research/vocabulary-processing-prompt-evaluation-2026-10-13.md) for failures, refinements, the targeted 20/20 final check, and its limits. Deterministic request and eligibility tests passed as part of a 44-test suite. An isolated native fixture checked template switching, selectable read-only instructions, request preview, target-language expansion, and omission of words/rules when vocabulary is disabled. This does not establish universal model correctness or the behavior of arbitrary custom prompts.
 
 Doubao context belongs before recognition and remains a separate future experiment. It is not a final correction stage after LLM processing.
 
@@ -273,7 +281,7 @@ Doubao context belongs before recognition and remains a separate future experime
 - [Typeless's official guide](https://www.typeless.com/help/quickstart/history-and-dictionary) confirms automatic learning of preferred spelling after a user correction and manual entry of correct words or phrases. It does not disclose the diff algorithm, semantic classifier, whether an LLM is used for learning, or whether the entire vocabulary is supplied at runtime. Snapshot comparison followed by semantic term selection is a plausible design, not a verified description of Typeless internals.
 - VoiceInk provides a verifiable open-source example: its [CorrectionDiffEngine](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Dictionary/AutoLearn/CorrectionDiffEngine.swift) extracts localized edit evidence, and its [AutoLearnAIReviewer](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Dictionary/AutoLearn/AutoLearnAIReviewer.swift) submits before/after snippets for structured AI review. Purrr likewise separates local differences, semantic review, and reversible collection. This is an architectural reference, not copied code.
 
-The remaining sections describe the longer-term learning design, not behavior enabled in the collection-only increment.
+The remaining sections describe the longer-term learning design beyond the implemented semantic-learning and spelling-guidance increment.
 
 ### Candidate generation
 
@@ -294,7 +302,7 @@ Submitted text:  Do you know typeless?
 Candidate:        TypeList -> typeless
 ```
 
-The current collection-only increment adds only LLM-approved corrections from new outcomes, with Undo and click-to-edit. It does not use a model-reported numeric confidence threshold or apply corrections to output. Ordinary and uncertain decisions are excluded from both automatic collection and the approved-proposal list.
+The current increment adds only LLM-approved corrections from new outcomes, with Undo and click-to-edit. It does not use a model-reported numeric confidence threshold. Ordinary and uncertain decisions are excluded from automatic collection and the approved-proposal list; eligible saved words separately guide semantic spelling corrections during LLM processing.
 
 ### Mode-specific learning
 

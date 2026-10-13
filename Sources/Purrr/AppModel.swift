@@ -464,7 +464,7 @@ final class AppModel: ObservableObject {
 
   private func processTranscript(_ transcript: String) async {
     guard let mode = activeMode else { return }
-    let configuration = llmConfiguration()
+    let configuration = llmConfiguration(includeVocabulary: true)
     var output = transcript
     var usedFallback = false
     var fallbackMessage: String?
@@ -474,7 +474,7 @@ final class AppModel: ObservableObject {
       statusMessage =
         mode == .translate
         ? "Into \((activeTargetLanguage ?? settings.targetLanguage).title)"
-        : "Removing filler and repetitions"
+        : (configuration.dictatePrompt.isEmpty ? "Checking spellings" : "Polishing text")
       do {
         switch mode {
         case .dictate:
@@ -697,13 +697,14 @@ final class AppModel: ObservableObject {
     }
   }
 
-  private func llmConfiguration() -> LLMConfiguration {
+  private func llmConfiguration(includeVocabulary: Bool = false) -> LLMConfiguration {
     LLMConfiguration(
       baseURL: settings.baseURL.trimmingCharacters(in: .whitespacesAndNewlines),
       apiKey: settings.apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
       model: settings.model.trimmingCharacters(in: .whitespacesAndNewlines),
       dictatePrompt: settings.dictatePrompt.trimmingCharacters(in: .whitespacesAndNewlines),
-      translatePrompt: settings.translatePrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+      translatePrompt: settings.translatePrompt.trimmingCharacters(in: .whitespacesAndNewlines),
+      vocabulary: includeVocabulary && settings.llmEnabled ? vocabulary.processingTerms : []
     )
   }
 }

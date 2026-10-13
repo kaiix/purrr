@@ -228,6 +228,8 @@ Requirements:
 - Allow connection validation from Settings.
 - Use separate prompts for Dictate and Translate.
 - Show both prompts in Settings, persist user edits locally, and allow each prompt to be restored to its built-in default. The Translate prompt supports the `{{target_language}}` placeholder.
+- The vocabulary follow-up reuses one Use vocabulary switch for learning and correction. When enabled, send the full eligible saved-word list in the existing processing request with semantic spelling rules. Do not add a separate correction call or require a vocabulary placeholder. A blank Dictate prompt corrects vocabulary spellings only; with no eligible words it returns raw text without a model request. Vocabulary never changes the stored raw transcript or synchronizes to Doubao IME.
+- Keep user templates separate from built-in rules and word data. Provide read-only Vocabulary Instructions and Preview Request views, using a synthetic transcript without sending a request or showing credentials. Unaccepted suggestions and unchecked legacy automatic words must not participate in correction.
 - Treat the recognized transcript as structured, untrusted source text. Questions, commands, role labels, and prompt-like content inside it must be edited or translated, never answered or followed. Keep this source-text boundary separate from the user-editable prompts so it cannot be removed accidentally.
 - Use deterministic or low-variance generation settings where supported.
 - Require plain-text model output. Markdown wrappers, explanations, and alternative versions must not be inserted into the destination application.

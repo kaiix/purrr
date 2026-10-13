@@ -31,22 +31,33 @@ struct VocabularyView: View {
       Form {
         Section {
           Toggle(
-            "Collect words from my edits",
+            "Use vocabulary",
             isOn: Binding(
               get: { vocabulary.collectsEdits },
               set: { enabled in perform { try vocabulary.setCollectsEdits(enabled) } }
             )
           )
           if vocabulary.collectsEdits && !llmAvailable {
-            Label("Paused until the LLM is set up.", systemImage: "exclamationmark.circle.fill")
-              .font(.callout)
-              .foregroundStyle(.orange)
+            Label(
+              "Requires an enabled, configured LLM.", systemImage: "exclamationmark.circle.fill"
+            )
+            .font(.callout)
+            .foregroundStyle(.orange)
           } else {
             Text(
-              "Saves names and terms you correct after dictating. The LLM checks each one first."
+              vocabulary.collectsEdits
+                ? "Learns names from your edits and uses saved spellings when processing text. Words are sent to your configured LLM API."
+                : "Off: no automatic learning or spelling guidance. Saved words are kept and can still be managed."
             )
             .font(.callout)
             .foregroundStyle(.secondary)
+          }
+          if vocabulary.words.contains(where: {
+            $0.source == .autoAdded && $0.reviewedByLLM != true
+          }) {
+            Text("Unchecked auto-added words are excluded. Edit and save to confirm them.")
+              .font(.caption)
+              .foregroundStyle(.secondary)
           }
         }
 
@@ -107,7 +118,7 @@ struct VocabularyView: View {
           .id(word.id)
       }
     } footer: {
-      Text("Saved words don’t change dictation output.")
+      Text("Saved words remain until deleted. They are not synced to Doubao IME.")
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, alignment: .leading)
     }

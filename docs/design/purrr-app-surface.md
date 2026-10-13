@@ -20,13 +20,13 @@ Use native macOS controls, compact layouts, and clear state labels. Respect Redu
 
 ## Vocabulary Direction Contract
 
-**Thesis:** Make word collection visible and reversible, not an invisible correction system. Keep management inside existing Settings rather than introducing a dictionary dashboard.
+**Thesis:** Make word learning reversible and spelling guidance inspectable. Keep management inside existing Settings rather than introducing a dictionary dashboard.
 
 **Own-world:** Inherit native tabs, compact system typography, semantic colors, inset lists, and standard macOS controls. No new visual identity or custom container style.
 
-**Story:** The user sees that saved words are local and do not affect output yet. Edit snippets are sent to the configured LLM for same-entity correction review. Approved new terms are saved with a notice that offers Undo and opens the word when clicked; older edits require explicit review and manual confirmation. Ordinary rewrites, uncertainty, and failed review never become automatic words.
+**Story:** One Use vocabulary switch controls learning and correction. Edit snippets are sent to the configured LLM for same-entity correction review. Approved new terms are saved with a reversible notice; older edits require explicit review and manual confirmation. Eligible saved spellings are sent in the existing processing request, not in a separate correction call. Ordinary rewrites, uncertainty, and failed review never become automatic words. Unchecked legacy automatic words remain visible but are excluded until manually edited and saved.
 
-**First viewport:** A grouped Form matching the other Settings tabs. A collection toggle with a one-sentence explanation precedes a segmented Words / Suggestions control with counts. Words provides a full-width input and Add action, then each saved word with a source glyph; earlier auto-added words that predate checking are marked Not checked. Suggestions shows the explicit Check action with the count of older unchecked edits while any exist, then LLM-approved editable spellings with Add and Dismiss actions and expandable before/after context. If the LLM is unavailable, the toggle states that collection is paused; manual words remain available.
+**First viewport:** A grouped Form matching the other Settings tabs. The Use vocabulary toggle explains learning, correction, and transmission to the configured API. Words and Suggestions remain the two management pages. Earlier unchecked automatic words have a short explanation of how to confirm them. Suggestions offers explicit Check for older unchecked edits, then approved editable spellings with Add and Dismiss and expandable before/after context. If the LLM is unavailable, the surface explains the requirement; manual words remain available. The LLM prompt editor displays vocabulary status and explicit read-only rule and request-preview actions, without another toggle or a required vocabulary placeholder.
 
 **Form:** A narrow native Settings extension, pinned to the incumbent design. No concept seed or separate composition round applies.
 

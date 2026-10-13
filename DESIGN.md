@@ -199,7 +199,7 @@ The shortcut recorder is a native bordered button with a rounded system label an
 
 The settings tab is named **LLM**. API credentials use vertically labeled, full-width fields so values and insertion points remain left aligned. Model selection is populated from the configured endpoint and pairs a native menu Picker with an explicit Load or Refresh action, compact progress evidence, and inline recovery text.
 
-Prompt customization uses one editor rather than two competing text surfaces. A segmented Dictate/Translate control switches the visible prompt, with contextual guidance below the editor and a disabled-until-needed Restore Default action. The Translate prompt documents `{{target_language}}` as its only supported placeholder.
+Prompt customization uses one editor rather than two competing text surfaces. A segmented Dictate/Translate control switches the visible user template, with contextual guidance below the editor and a disabled-until-needed Restore Default action. The Translate template documents `{{target_language}}` as its only supported placeholder. A compact vocabulary status explains whether eligible words are included automatically. Vocabulary Instructions and Preview Request open explicitly requested read-only sheets, with selectable text, scrolling for long content, and a keyboard-accessible Done action. Preview uses an illustrative transcript with the current template, language, and eligible word list; it never shows credentials or sends a request. Built-in rules and expanded words are never written back into the editable template. Vocabulary has one Use vocabulary switch for both learning and correction, paired with plain-language API-disclosure and paused-state copy.
 
 ### History Rows
 

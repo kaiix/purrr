@@ -9,7 +9,7 @@ struct VocabularyWord: Identifiable, Codable, Equatable {
 
   let id: UUID
   var term: String
-  let source: Source
+  var source: Source
   let createdAt: Date
   var reviewedByLLM: Bool? = nil
 }
@@ -68,6 +68,12 @@ final class VocabularyStore: ObservableObject {
   private var observedCandidates: [VocabularyCandidate] = []
   private var canWrite = true
   private var activeReviews = 0
+
+  /// The existing collection switch also controls vocabulary use during processing.
+  var processingTerms: [String] {
+    guard collectsEdits else { return [] }
+    return words.filter { $0.source != .autoAdded || $0.reviewedByLLM == true }.map(\.term)
+  }
 
   var unreviewedCandidates: [VocabularyCandidate] {
     guard collectsEdits else { return [] }
@@ -219,6 +225,10 @@ final class VocabularyStore: ObservableObject {
     var next = snapshot
     guard let index = next.words.firstIndex(where: { $0.id == word.id }) else { return }
     next.words[index].term = cleaned
+    if word.source == .autoAdded && word.reviewedByLLM != true {
+      // Explicitly saving a legacy spelling is a manual confirmation, not LLM approval.
+      next.words[index].source = .manual
+    }
     try save(next)
   }
 
