@@ -27,33 +27,29 @@ struct HistoryView: View {
         history.deleteAll()
       }
     } message: {
-      Text("This permanently deletes all retained audio and text.")
+      Text("All audio and text are deleted from this Mac.")
     }
   }
 
   private var header: some View {
-    HStack(alignment: .center, spacing: 20) {
-      VStack(alignment: .leading, spacing: 5) {
-        Text("History")
-          .font(.system(size: 28, weight: .bold))
-        Text("Audio and text stay on this Mac for 24 hours.")
-          .foregroundStyle(.secondary)
-      }
+    HStack(spacing: 20) {
+      Text("Kept on this Mac for 24 hours.")
+        .foregroundStyle(.secondary)
       Spacer()
-      if !history.entries.isEmpty {
-        Button("Delete All", role: .destructive) {
-          confirmDeleteAll = true
-        }
+      Button("Delete All…", role: .destructive) {
+        confirmDeleteAll = true
       }
+      .disabled(history.entries.isEmpty)
     }
-    .padding(24)
+    .padding(.horizontal, 24)
+    .padding(.vertical, 10)
   }
 
   private var emptyState: some View {
     ContentUnavailableView {
-      Label("No recent dictations", systemImage: "waveform")
+      Label("No history", systemImage: "waveform")
     } description: {
-      Text("Completed, failed, and dismissed sessions will appear here for 24 hours.")
+      Text("Press \(model.settings.dictateShortcut.displayName) in any text field to dictate.")
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
@@ -73,42 +69,51 @@ private struct HistoryRow: View {
 
       VStack(alignment: .leading, spacing: 9) {
         HStack(spacing: 8) {
-          Text(entry.mode.title)
+          Text(modeTitle)
             .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
-          Text(entry.completedAt, style: .time)
+          Text(timestamp)
             .font(.caption)
             .foregroundStyle(.secondary)
           if entry.usedRawFallback {
-            Text("Raw fallback")
+            Text("Not polished")
               .font(.caption.weight(.medium))
               .foregroundStyle(.orange)
           }
+          if entry.status == .dismissed, let message = entry.failureMessage {
+            Text(message)
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
         }
 
-        VStack(alignment: .leading, spacing: 6) {
-          HistoryTextStage(
-            label: "Final",
-            text: entry.submittedText,
-            unavailableText: submittedUnavailableText,
-            isPrimary: true,
-            onCopy: { history.copy(entry.submittedText) }
-          )
-          HistoryTextStage(
-            label: "Optimized",
-            text: entry.processedText,
-            unavailableText: "Not available",
-            onCopy: { history.copy(entry.processedText) }
-          )
-          HistoryTextStage(
-            label: "Transcript",
-            text: entry.rawTranscript,
-            unavailableText: "Not available",
-            onCopy: { history.copy(entry.rawTranscript) }
-          )
+        if finalText != nil || processedText != nil || transcript != nil {
+          VStack(alignment: .leading, spacing: 6) {
+            HistoryTextStage(
+              label: "Final",
+              text: finalText,
+              unavailableText: submittedUnavailableText,
+              isPrimary: true,
+              onCopy: { history.copy(finalText) }
+            )
+            HistoryTextStage(
+              label: entry.mode == .translate ? "Translated" : "Polished",
+              text: processedText,
+              unavailableText: processedUnavailableText,
+              isPrimary: finalText == nil,
+              onCopy: { history.copy(processedText) }
+            )
+            HistoryTextStage(
+              label: "Transcript",
+              text: transcript,
+              unavailableText: "Not available",
+              isPrimary: finalText == nil && processedText == nil,
+              onCopy: { history.copy(transcript) }
+            )
+          }
         }
 
-        if let message = entry.failureMessage, entry.status != .succeeded {
+        if let message = entry.failureMessage, entry.status == .failed {
           Text(message)
             .font(.caption)
             .foregroundStyle(.red)
@@ -135,16 +140,49 @@ private struct HistoryRow: View {
         } label: {
           Image(systemName: "trash")
         }
-        .help("Delete retained audio and text")
+        .help("Delete")
+        .accessibilityLabel("Delete")
       }
       .buttonStyle(.borderless)
     }
     .padding(.vertical, 10)
   }
 
+  private var finalText: String? { Self.clean(entry.submittedText) }
+  private var transcript: String? { Self.clean(entry.rawTranscript) }
+
+  // With the LLM off or failed, the stored output is the transcript itself; don't show it twice.
+  private var processedText: String? {
+    let processed = Self.clean(entry.processedText)
+    return entry.usedRawFallback || processed == transcript ? nil : processed
+  }
+
+  private var processedUnavailableText: String {
+    if entry.usedRawFallback || entry.failureStage == .languageModel { return "LLM failed" }
+    return Self.clean(entry.processedText) == nil ? "Not available" : "Same as transcript"
+  }
+
+  private static func clean(_ text: String?) -> String? {
+    guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty
+    else { return nil }
+    return trimmed
+  }
+
+  private var modeTitle: String {
+    guard entry.mode == .translate, let language = entry.targetLanguage else {
+      return entry.mode.title
+    }
+    return "\(entry.mode.title) → \(language.title)"
+  }
+
+  private var timestamp: String {
+    let time = entry.completedAt.formatted(date: .omitted, time: .shortened)
+    return Calendar.current.isDateInToday(entry.completedAt) ? time : "Yesterday \(time)"
+  }
+
   private var submittedUnavailableText: String {
     switch entry.submissionState {
-    case .pending: "Watching for final edits…"
+    case .pending: "Watching for edits…"
     case .cancelled: "Editing cancelled"
     case .confirmed, .notObserved, .unknown: "Not captured"
     }
@@ -183,8 +221,8 @@ private struct HistoryTextStage: View {
         .foregroundStyle(.secondary)
         .frame(width: 66, alignment: .trailing)
 
-      if let displayText {
-        Text(displayText)
+      if let text {
+        Text(text)
           .font(isPrimary ? .body : .callout)
           .foregroundStyle(isPrimary ? .primary : .secondary)
           .lineLimit(nil)
@@ -197,21 +235,14 @@ private struct HistoryTextStage: View {
         }
         .buttonStyle(.borderless)
         .controlSize(.small)
-        .help("Copy \(label.lowercased()) text")
+        .help("Copy")
         .accessibilityLabel("Copy \(label.lowercased()) text")
       } else {
         Text(unavailableText)
           .font(.callout)
           .foregroundStyle(.tertiary)
-          .italic()
           .frame(maxWidth: .infinity, alignment: .leading)
       }
     }
-  }
-
-  private var displayText: String? {
-    guard let text else { return nil }
-    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    return trimmed.isEmpty ? nil : trimmed
   }
 }
