@@ -103,7 +103,7 @@ An active session may also enter `Cancelled` or `Failed`.
 
 The transcription bar should communicate these states clearly without taking keyboard focus from the destination application. During recording it displays an audio waveform rather than recognition text. After successful delivery it displays a success state for one second and then disappears.
 
-Pressing `Escape` during an active recording cancels the session. A cancelled session with captured audio is retained as a dismissed history entry, but it does not insert partial text. Silence-only or effectively empty recordings produce no insertion.
+Pressing `Escape` during an active recording cancels the session. `Escape`, or the Cancel control shown when the strip is hovered, also cancels while Purrr is transcribing or processing, until insertion begins. A cancelled session with captured audio is retained as a dismissed history entry, but it does not insert partial text. Silence-only or effectively empty recordings produce no insertion.
 
 ## 7. Keyboard Shortcuts and Recording Limit
 

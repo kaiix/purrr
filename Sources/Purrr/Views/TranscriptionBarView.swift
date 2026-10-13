@@ -17,31 +17,29 @@ enum TranscriptionBarLayout {
 struct TranscriptionBarView: View {
   @ObservedObject var model: AppModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var isHovered = false
 
   var body: some View {
-    Group {
+    ZStack {
       switch model.phase {
       case .recording:
-        recordingControls
+        recordingControls.transition(.opacity)
       case .recognizing, .processing, .delivering:
-        workingStatus
+        workingStatus.transition(.opacity)
       case .succeeded:
-        resultStatus(
-          symbol: "checkmark",
-          symbolBackground: .green,
-          title: successTitle,
-          help: model.statusMessage
-        )
+        resultStatus(symbol: "checkmark", tint: .green, title: successTitle)
+          .transition(.opacity)
       case .failed:
-        resultStatus(
-          symbol: "exclamationmark",
-          symbolBackground: .red,
-          title: model.failureTitle,
-          help: model.statusMessage
-        )
+        failureStatus.transition(.opacity)
       case .idle:
         EmptyView()
       }
+    }
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: stateID)
+    .environment(\.colorScheme, .dark)
+    .onHover { hovering in
+      isHovered = hovering
+      model.setStripHovering(hovering)
     }
     .frame(
       width: TranscriptionBarLayout.stripSize.width,
@@ -89,45 +87,80 @@ struct TranscriptionBarView: View {
     .accessibilityLabel(accessibilitySummary)
   }
 
+  // Every state after recording keeps its mark in the slot the Cancel button occupied.
   private var workingStatus: some View {
-    HStack(spacing: 8) {
-      ProcessingIndicator(reduceMotion: reduceMotion)
-      Text(primaryText)
-        .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(.white.opacity(0.92))
-        .lineLimit(1)
-    }
-    .padding(.horizontal, 12)
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(stripBackground)
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(accessibilitySummary)
-  }
-
-  private func resultStatus(
-    symbol: String,
-    symbolBackground: Color,
-    title: String,
-    help: String
-  ) -> some View {
-    HStack(spacing: 8) {
-      Image(systemName: symbol)
-        .font(.system(size: 10, weight: .bold))
-        .foregroundStyle(.white)
-        .frame(width: 22, height: 22)
-        .background(symbolBackground.opacity(0.95), in: Circle())
-        .frame(width: 28, height: 28)
-      Text(title)
-        .font(.system(size: 13, weight: .medium))
-        .foregroundStyle(.white.opacity(0.94))
-        .lineLimit(1)
+    HStack(spacing: 0) {
+      ZStack {
+        if isHovered && model.phase != .delivering {
+          StripActionButton(symbol: "xmark", help: "Cancel", appearance: .cancel) {
+            model.cancelProcessing()
+          }
+        } else {
+          ProcessingIndicator(reduceMotion: reduceMotion)
+        }
+      }
+      .frame(width: 28, height: 28)
+      label(primaryText)
     }
     .padding(.horizontal, 8)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(stripBackground)
-    .help(help)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(accessibilitySummary)
+  }
+
+  @ViewBuilder
+  private var failureStatus: some View {
+    let status = resultStatus(
+      symbol: "exclamationmark", tint: .red, title: model.failureTitle,
+      showsChevron: model.failureAction != nil)
+    if model.failureAction == nil {
+      status.help(model.statusMessage)
+    } else {
+      Button(action: model.openFailureFix) { status }
+        .buttonStyle(.plain)
+        .help("\(model.statusMessage) Click to open Settings.")
+        .accessibilityHint("Opens Settings")
+    }
+  }
+
+  private func resultStatus(
+    symbol: String,
+    tint: Color,
+    title: String,
+    showsChevron: Bool = false
+  ) -> some View {
+    HStack(spacing: 0) {
+      Image(systemName: symbol)
+        .font(.system(size: 11, weight: .bold))
+        .foregroundStyle(tint)
+        .frame(width: 28, height: 28)
+        .background(tint.opacity(0.3), in: Circle())
+      label(title)
+        .padding(.trailing, showsChevron ? 0 : 4)
+      if showsChevron {
+        Image(systemName: "chevron.right")
+          .font(.system(size: 9, weight: .semibold))
+          .foregroundStyle(.white.opacity(0.5))
+      }
+    }
+    .padding(.horizontal, 8)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(stripBackground)
+    .contentShape(Capsule(style: .circular))
     .accessibilityElement(children: .combine)
     .accessibilityLabel(accessibilitySummary)
+  }
+
+  private func label(_ text: String) -> some View {
+    Text(text)
+      .font(.system(size: 13, weight: .medium))
+      .foregroundStyle(.white.opacity(0.94))
+      .lineLimit(1)
+      .minimumScaleFactor(0.9)
+      .frame(maxWidth: .infinity)
+      .padding(.leading, 6)
+      .padding(.trailing, 2)
   }
 
   private var stripBackground: some View {
@@ -149,6 +182,17 @@ struct TranscriptionBarView: View {
       "Inserting"
     default:
       model.activeMode?.title ?? "Purrr"
+    }
+  }
+
+  // Transitions follow the kind of state, not its message.
+  private var stateID: Int {
+    switch model.phase {
+    case .idle: 0
+    case .recording: 1
+    case .recognizing, .processing, .delivering: 2
+    case .succeeded: 3
+    case .failed: 4
     }
   }
 
@@ -221,12 +265,15 @@ private struct VoiceWaveformView: View {
   }
 
   private func barHeight(for sample: CGFloat) -> CGFloat {
-    2 + sample * 16
+    // Silence keeps a short baseline so the strip never looks switched off.
+    3 + sample * 15
   }
 
   private func barOpacity(at index: Int) -> Double {
     let distanceFromLatest = samples.count - index - 1
-    return max(0.42, 0.96 - Double(distanceFromLatest) * 0.035)
+    // Quiet bars recede; the newest stays bright as proof the microphone is live.
+    let age = max(0.5, 0.96 - Double(distanceFromLatest) * 0.05)
+    return distanceFromLatest == 0 ? age : age * (0.6 + 0.4 * min(1, Double(samples[index]) * 3))
   }
 }
 
@@ -307,5 +354,18 @@ private struct StripCircleButtonStyle: ButtonStyle {
     case .finish:
       Color(white: isPressed ? 0.78 : (isHovered ? 0.9 : 0.96))
     }
+  }
+}
+
+// Text actions on the charcoal capsules share the Cancel button's quiet fill.
+struct StripTextButtonStyle: ButtonStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .font(.system(size: 12, weight: .medium))
+      .foregroundStyle(.white.opacity(0.94))
+      .padding(.horizontal, 11)
+      .frame(height: 24)
+      .background(Color.white.opacity(configuration.isPressed ? 0.25 : 0.14), in: Capsule())
+      .contentShape(Capsule())
   }
 }

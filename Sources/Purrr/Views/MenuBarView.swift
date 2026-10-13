@@ -16,9 +16,9 @@ struct MenuBarView: View {
 
     modeButton(.dictate, shortcut: settings.dictateShortcut)
     modeButton(.translate, shortcut: settings.translateShortcut)
-    if model.phase == .recording {
+    if [.recording, .recognizing, .processing].contains(model.phase) {
       Button("Cancel") {
-        model.cancelRecording()
+        model.cancel()
       }
       .keyboardShortcut(.escape, modifiers: [])
     }

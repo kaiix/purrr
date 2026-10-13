@@ -28,21 +28,19 @@ struct VocabularyNoticeView: View {
             switch notice {
             case .added:
               Button("Undo") { controller.undo() }
-                .controlSize(.small)
             case .suggestion:
               Button("Add") { controller.addSuggestion() }
-                .controlSize(.small)
               Button("Review") { controller.edit() }
-                .controlSize(.small)
             }
           }
         }
+        .buttonStyle(StripTextButtonStyle())
         .foregroundStyle(.white)
         .padding(.leading, 18)
         .padding(.trailing, 12)
         .frame(width: VocabularyNoticeLayout.size.width, height: VocabularyNoticeLayout.size.height)
         .background(Capsule().fill(Color(red: 0.035, green: 0.035, blue: 0.04)))
-        .overlay(Capsule().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+        .overlay(Capsule().strokeBorder(.white.opacity(0.24), lineWidth: 0.75))
         .environment(\.colorScheme, .dark)
         .onHover { controller.setHovering($0) }
       }

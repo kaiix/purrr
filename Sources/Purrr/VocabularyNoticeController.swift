@@ -24,6 +24,7 @@ final class VocabularyNoticeController: ObservableObject {
   private let vocabulary: VocabularyStore
   private var pending: [VocabularyNotice] = []
   private var panel: NSPanel?
+  private lazy var shadow = CapsuleShadowPanel(capsuleSize: VocabularyNoticeLayout.size)
   private var dismissalTask: Task<Void, Never>?
   private var isSuspended = true
   private var isHovering = false
@@ -147,6 +148,7 @@ final class VocabularyNoticeController: ObservableObject {
         x: frame.midX - panel.frame.width / 2, y: frame.minY + TranscriptionBarLayout.bottomOffset)
     )
     panel.orderFrontRegardless()
+    shadow.attach(below: panel)
     scheduleDismissal()
   }
 

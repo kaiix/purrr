@@ -29,6 +29,8 @@ final class AppModel: ObservableObject {
   @Published private(set) var elapsed: TimeInterval = 0
   @Published private(set) var statusMessage: String = ""
   @Published private(set) var failureTitle = "Failed"
+  // The Settings tab that fixes the current failure, when there is one.
+  @Published private(set) var failureAction: SettingsTab?
   @Published private(set) var connectionTestStatus: ConnectionTestStatus = .idle
   @Published private(set) var availableLLMModels: [String] = []
   @Published private(set) var modelListStatus: ModelListStatus = .idle
@@ -53,6 +55,8 @@ final class AppModel: ObservableObject {
   private var isStartingSession = false
   private var currentSessionID: UInt64 = 0
   private var pendingRecording: AudioRecording?
+  private var pendingTranscript: String?
+  private var isStripHovered = false
   private var pendingRetryID: UUID?
   private var sessionStartedAt: Date?
   private var clockTask: Task<Void, Never>?
@@ -275,6 +279,55 @@ final class AppModel: ObservableObject {
     panelController.hide()
   }
 
+  func cancelProcessing() {
+    guard phase == .recognizing || phase == .processing else { return }
+    speechEngine.cancel()
+    // Results that arrive after this belong to a session that no longer exists.
+    currentSessionID &+= 1
+    if let retryID = pendingRetryID {
+      history.update(
+        id: retryID,
+        rawTranscript: pendingTranscript,
+        processedText: nil,
+        status: .dismissed,
+        failureMessage: "Cancelled"
+      )
+    } else if let mode = activeMode {
+      history.add(
+        mode: mode,
+        recording: pendingRecording,
+        rawTranscript: pendingTranscript,
+        processedText: nil,
+        targetLanguage: activeTargetLanguage,
+        status: .dismissed,
+        failureMessage: "Cancelled"
+      )
+    }
+    resetSession()
+    panelController.hide()
+  }
+
+  func cancel() {
+    if phase == .recording {
+      cancelRecording()
+    } else {
+      cancelProcessing()
+    }
+  }
+
+  func openFailureFix() {
+    guard let tab = failureAction else { return }
+    currentSessionID &+= 1
+    resetSession()
+    panelController.hide()
+    settingsTab = tab
+    showSettings()
+  }
+
+  func setStripHovering(_ hovering: Bool) {
+    isStripHovered = hovering
+  }
+
   func retry(_ entry: HistoryEntry) {
     guard phase == .idle, !isStartingSession else { return }
     guard entry.expiresAt > Date() else {
@@ -284,11 +337,11 @@ final class AppModel: ObservableObject {
     let retryNeedsLanguageModel =
       entry.mode == .translate || entry.failureStage == .languageModel
     if retryNeedsLanguageModel && !settings.llmEnabled {
-      showTransientFailure("Turn on the LLM to retry.", title: "LLM is off")
+      showTransientFailure("Turn on the LLM to retry.", title: "LLM is off", action: .llm)
       return
     }
     if settings.llmEnabled && !settings.isLLMConfigured {
-      showTransientFailure("Finish LLM setup first.", title: "Set up LLM")
+      showTransientFailure("Finish LLM setup first.", title: "Set up LLM", action: .llm)
       return
     }
 
@@ -399,16 +452,18 @@ final class AppModel: ObservableObject {
 
   private func begin(_ mode: SessionMode) async {
     if settings.llmEnabled && !settings.isLLMConfigured {
-      showTransientFailure("Finish LLM setup first.", title: "Set up LLM")
+      showTransientFailure("Finish LLM setup first.", title: "Set up LLM", action: .llm)
       return
     }
     if mode == .translate && !settings.llmEnabled {
-      showTransientFailure("Turn on the LLM to use Translate.", title: "LLM is off")
+      showTransientFailure(
+        "Turn on the LLM to use Translate.", title: "LLM is off", action: .llm)
       return
     }
     let requestedDestination = delivery.captureDestination()
     guard await AudioRecorder.requestPermission() else {
-      showTransientFailure("Allow microphone access in System Settings.", title: "Mic blocked")
+      showTransientFailure(
+        "Allow microphone access in System Settings.", title: "Mic blocked", action: .general)
       return
     }
 
@@ -476,6 +531,8 @@ final class AppModel: ObservableObject {
 
   private func processTranscript(_ transcript: String) async {
     guard let mode = activeMode else { return }
+    let sessionID = currentSessionID
+    pendingTranscript = transcript
     let configuration = llmConfiguration(includeVocabulary: true)
     var output = transcript
     var usedFallback = false
@@ -502,6 +559,7 @@ final class AppModel: ObservableObject {
           )
         }
       } catch {
+        guard sessionID == currentSessionID else { return }
         if mode == .translate {
           finishFailure(
             error.localizedDescription,
@@ -515,6 +573,8 @@ final class AppModel: ObservableObject {
         fallbackMessage = error.localizedDescription
       }
     }
+    // Cancelled while the LLM was working.
+    guard sessionID == currentSessionID else { return }
 
     if let retryID = pendingRetryID {
       history.update(
@@ -641,8 +701,11 @@ final class AppModel: ObservableObject {
     stage == .languageModel ? "LLM failed" : "Failed"
   }
 
-  private func showTransientFailure(_ message: String, title: String = "Failed") {
+  private func showTransientFailure(
+    _ message: String, title: String = "Failed", action: SettingsTab? = nil
+  ) {
     failureTitle = title
+    failureAction = action
     phase = .failed(message)
     statusMessage = message
     panelController.show()
@@ -653,6 +716,10 @@ final class AppModel: ObservableObject {
     let scheduledSessionID = currentSessionID
     Task {
       try? await Task.sleep(for: .seconds(delay))
+      // A failure stays up while the pointer is over it.
+      while isStripHovered, case .failed = phase, currentSessionID == scheduledSessionID {
+        try? await Task.sleep(for: .milliseconds(250))
+      }
       guard currentSessionID == scheduledSessionID, phase != .recording else { return }
       resetSession()
       panelController.hide()
@@ -665,9 +732,16 @@ final class AppModel: ObservableObject {
     activeMode = nil
     activeTargetLanguage = nil
     pendingRecording = nil
+    pendingTranscript = nil
     pendingRetryID = nil
+    failureAction = nil
+    isStripHovered = false
     destination = nil
     audioLevel = 0
+    if let escapeMonitor {
+      NSEvent.removeMonitor(escapeMonitor)
+      self.escapeMonitor = nil
+    }
     elapsed = 0
     statusMessage = ""
   }
@@ -691,10 +765,6 @@ final class AppModel: ObservableObject {
     clockTask?.cancel()
     clockTask = nil
     sessionStartedAt = nil
-    if let escapeMonitor {
-      NSEvent.removeMonitor(escapeMonitor)
-      self.escapeMonitor = nil
-    }
   }
 
   private func installEscapeMonitor() {
@@ -704,7 +774,7 @@ final class AppModel: ObservableObject {
     escapeMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
       guard event.keyCode == 53 else { return }
       Task { @MainActor in
-        self?.cancelRecording()
+        self?.cancel()
       }
     }
   }
