@@ -22,11 +22,11 @@ enum VocabularyError: LocalizedError {
 
   var errorDescription: String? {
     switch self {
-    case .invalidTerm: "Enter a word or short phrase of up to 60 characters, without line breaks."
-    case .duplicateTerm: "This word is already in your vocabulary. Edit the existing word instead."
-    case .unreadableStorage: "The vocabulary file could not be read. It has not been overwritten."
+    case .invalidTerm: "Use up to 60 characters on one line."
+    case .duplicateTerm: "Already in your vocabulary."
+    case .unreadableStorage: "Couldn’t read the vocabulary file. Nothing was changed."
     case .wordChanged:
-      "A word has been changed since it was added. Manage it in Vocabulary instead."
+      "This word has changed. Edit it in Vocabulary."
     }
   }
 }

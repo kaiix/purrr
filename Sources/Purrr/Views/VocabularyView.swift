@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct VocabularyView: View {
-  private enum Page: String, CaseIterable, Identifiable {
-    case words = "Saved Words"
-    case review = "Review Edits"
+  private enum Page: Identifiable {
+    case words
+    case review
     var id: Self { self }
   }
 
@@ -27,122 +27,63 @@ struct VocabularyView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      VStack(alignment: .leading, spacing: 6) {
-        Text("Collect words, without changing your dictations.")
-          .font(.headline)
-        Text(
-          "Edit snippets are reviewed by your configured LLM. Saved words do not change dictation output or sync to Doubao IME."
-        )
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-      }
-
-      Toggle(
-        "Automatically add LLM-reviewed words from new Dictate edits",
-        isOn: Binding(
-          get: { vocabulary.collectsEdits },
-          set: { enabled in perform { try vocabulary.setCollectsEdits(enabled) } }
-        )
-      )
-      Text(
-        llmAvailable
-          ? "Only clear name and fixed-term corrections are collected, with Undo and Edit. Ordinary rewrites are ignored."
-          : "Enable and configure the LLM to review edits. Automatic collection is paused; manual words are still available."
-      )
-      .font(.callout)
-      .foregroundStyle(.secondary)
-      .fixedSize(horizontal: false, vertical: true)
-
-      Picker("Vocabulary", selection: $page) {
-        Text("Saved Words (\(vocabulary.words.count))").tag(Page.words)
-        Text(
-          "Review Edits (\(vocabulary.candidates.count + vocabulary.unreviewedCandidates.count))"
-        ).tag(Page.review)
-      }
-      .pickerStyle(.segmented)
-
-      if let message = vocabulary.storageError ?? errorMessage ?? vocabulary.reviewError {
-        Label(message, systemImage: "exclamationmark.triangle")
-          .foregroundStyle(.red)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-
-      if page == .words {
-        if vocabulary.words.contains(where: { $0.source == .autoAdded && $0.reviewedByLLM != true })
-        {
-          Text(
-            "Earlier auto-added words have not been semantically reviewed. Remove any unwanted entries."
+    ScrollViewReader { reader in
+      Form {
+        Section {
+          Toggle(
+            "Collect words from my edits",
+            isOn: Binding(
+              get: { vocabulary.collectsEdits },
+              set: { enabled in perform { try vocabulary.setCollectsEdits(enabled) } }
+            )
           )
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-        }
-        HStack(spacing: 8) {
-          TextField("Correct spelling of a name or term", text: $newTerm)
-            .textFieldStyle(.roundedBorder)
-            .onSubmit(addWord)
-            .accessibilityLabel("New vocabulary word")
-          Button("Add Word", action: addWord)
-            .disabled(newTerm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-        }
-        if vocabulary.words.isEmpty {
-          emptyState(
-            title: "No saved words",
-            detail: "Add a name or term yourself, or confirm one from Review Edits."
-          )
-        } else {
-          ScrollViewReader { reader in
-            List(vocabulary.words) { word in
-              VocabularyWordRow(
-                word: word, vocabulary: vocabulary, editingWordID: $editingWordID
-              )
-              .id(word.id)
-            }
-            .listStyle(.inset)
-            .onAppear {
-              if let editingWordID { reader.scrollTo(editingWordID, anchor: .center) }
-            }
-            .onChange(of: editingWordID) { _, id in
-              if let id { reader.scrollTo(id, anchor: .center) }
-            }
-          }
-        }
-      } else {
-        Text(
-          "Only LLM-approved term corrections appear below. Review sends local before/after snippets to your configured API. Evidence expires with History after 24 hours."
-        )
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-        HStack(spacing: 8) {
-          Button("Review Edits with LLM", action: onReview)
-            .disabled(
-              !llmAvailable || vocabulary.isReviewing || vocabulary.unreviewedCandidates.isEmpty)
-          if vocabulary.isReviewing {
-            ProgressView().controlSize(.small)
-            Text("Reviewing names and terms…")
+          if vocabulary.collectsEdits && !llmAvailable {
+            Label("Paused until the LLM is set up.", systemImage: "exclamationmark.circle.fill")
+              .font(.callout)
+              .foregroundStyle(.orange)
           } else {
-            Text("\(vocabulary.unreviewedCandidates.count) edits awaiting review")
+            Text(
+              "Saves names and terms you correct after dictating. The LLM checks each one first."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
           }
         }
-        .font(.callout)
-        if vocabulary.candidates.isEmpty {
-          emptyState(
-            title: vocabulary.collectsEdits
-              ? "No approved term corrections" : "Candidate collection is off",
-            detail:
-              "Use Review Edits with LLM to check older edits. Ordinary rewrites and uncertain results are not offered as words."
-          )
+
+        Section {
+          Picker("Vocabulary", selection: $page) {
+            Text("Words").tag(Page.words)
+            Text(
+              vocabulary.candidates.isEmpty
+                ? "Suggestions" : "Suggestions (\(vocabulary.candidates.count))"
+            ).tag(Page.review)
+          }
+          .pickerStyle(.segmented)
+          .labelsHidden()
+          .listRowBackground(Color.clear)
+          .listRowInsets(EdgeInsets())
+
+          if let message = vocabulary.storageError ?? errorMessage ?? vocabulary.reviewError {
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+              .font(.callout)
+              .foregroundStyle(.red)
+          }
+        }
+
+        if page == .words {
+          words
         } else {
-          List(vocabulary.candidates) { candidate in
-            VocabularyCandidateRow(candidate: candidate, vocabulary: vocabulary)
-          }
-          .listStyle(.inset)
+          suggestions
         }
+      }
+      .formStyle(.grouped)
+      .onAppear {
+        if let editingWordID { reader.scrollTo(editingWordID, anchor: .center) }
+      }
+      .onChange(of: editingWordID) { _, id in
+        if let id { reader.scrollTo(id, anchor: .center) }
       }
     }
-    .padding(.top, 16)
     .onChange(of: editRequest, initial: true) { _, id in
       guard let id else { return }
       editingWordID = id
@@ -151,13 +92,66 @@ struct VocabularyView: View {
     }
   }
 
-  private func emptyState(title: String, detail: String) -> some View {
-    ContentUnavailableView {
-      Label(title, systemImage: "text.book.closed")
-    } description: {
-      Text(detail)
+  private var words: some View {
+    Section {
+      HStack(spacing: 8) {
+        TextField("New word", text: $newTerm, prompt: Text("Add a name or term"))
+          .labelsHidden()
+          .textFieldStyle(.roundedBorder)
+          .onSubmit(addWord)
+        Button("Add", action: addWord)
+          .disabled(newTerm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      }
+      ForEach(vocabulary.words) { word in
+        VocabularyWordRow(word: word, vocabulary: vocabulary, editingWordID: $editingWordID)
+          .id(word.id)
+      }
+    } footer: {
+      Text("Saved words don’t change dictation output.")
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+
+  @ViewBuilder
+  private var suggestions: some View {
+    let unchecked = vocabulary.unreviewedCandidates.count
+    if unchecked > 0 || vocabulary.isReviewing {
+      Section {
+        HStack(spacing: 8) {
+          VStack(alignment: .leading, spacing: 3) {
+            Text("^[\(unchecked) older edit](inflect: true) not checked")
+            Text("Sends short before/after snippets to your LLM.")
+              .font(.caption)
+              .foregroundStyle(.secondary)
+          }
+          Spacer()
+          if vocabulary.isReviewing {
+            ProgressView().controlSize(.small)
+          }
+          Button("Check", action: onReview)
+            .disabled(!llmAvailable || vocabulary.isReviewing || unchecked == 0)
+        }
+      }
+    }
+
+    Section {
+      if vocabulary.candidates.isEmpty {
+        Text(
+          vocabulary.collectsEdits
+            ? "No suggestions. Corrections the LLM approves appear here." : "Collection is off."
+        )
+        .foregroundStyle(.secondary)
+      } else {
+        ForEach(vocabulary.candidates) { candidate in
+          VocabularyCandidateRow(candidate: candidate, vocabulary: vocabulary)
+        }
+      }
+    } footer: {
+      Text("Unchecked edits are deleted after 24 hours.")
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
   }
 
   private func addWord() {
@@ -189,7 +183,8 @@ private struct VocabularyWordRow: View {
     VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
         if editingWordID == word.id {
-          TextField("Word or phrase", text: $editedTerm)
+          TextField("Word", text: $editedTerm)
+            .labelsHidden()
             .textFieldStyle(.roundedBorder)
             .focused($termIsFocused)
             .onAppear { termIsFocused = true }
@@ -201,9 +196,9 @@ private struct VocabularyWordRow: View {
             errorMessage = nil
           }
         } else {
-          VStack(alignment: .leading, spacing: 3) {
-            Text(word.term).textSelection(.enabled)
-            Text(sourceDescription)
+          Text(word.term).textSelection(.enabled)
+          if let sourceNote {
+            Text(sourceNote)
               .font(.caption)
               .foregroundStyle(.secondary)
           }
@@ -220,11 +215,11 @@ private struct VocabularyWordRow: View {
           .accessibilityLabel("Delete \(word.term)")
         }
       }
+      .frame(minHeight: 22)
       if let errorMessage {
         Text(errorMessage).font(.callout).foregroundStyle(.red)
       }
     }
-    .padding(.vertical, 6)
     .buttonStyle(.borderless)
     .onChange(of: editingWordID, initial: true) { _, id in
       if id == word.id {
@@ -234,13 +229,9 @@ private struct VocabularyWordRow: View {
     }
   }
 
-  private var sourceDescription: String {
-    switch word.source {
-    case .manual: "Added manually"
-    case .confirmedEdit: "Confirmed from an edit"
-    case .autoAdded:
-      word.reviewedByLLM == true ? "Added after LLM review" : "Added before semantic review"
-    }
+  private var sourceNote: String? {
+    guard word.source == .autoAdded else { return nil }
+    return word.reviewedByLLM == true ? "Auto-added" : "Auto-added, not checked"
   }
 
   private func save() {
@@ -272,22 +263,13 @@ private struct VocabularyCandidateRow: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(alignment: .firstTextBaseline) {
-        Text("Edited from “\(candidate.originalTerm)”")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-          .textSelection(.enabled)
-        Spacer()
-        Text(candidate.observedAt, style: .time)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
+    VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
-        TextField("Word to save", text: $term)
+        TextField("Word", text: $term)
+          .labelsHidden()
           .textFieldStyle(.roundedBorder)
-          .accessibilityLabel("Candidate word to save")
-        Button("Keep Word") {
+          .accessibilityLabel("Suggested word")
+        Button("Add") {
           perform { try vocabulary.confirm(candidate, term: term) }
         }
         .disabled(term.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -295,31 +277,29 @@ private struct VocabularyCandidateRow: View {
           perform { try vocabulary.dismiss(candidate) }
         }
       }
-      Button {
-        showsContext.toggle()
-      } label: {
-        Label(
-          showsContext ? "Hide surrounding text" : "Compare surrounding text",
-          systemImage: showsContext ? "chevron.down" : "chevron.right"
-        )
-      }
-      .buttonStyle(.borderless)
-      .accessibilityValue(showsContext ? "Expanded" : "Collapsed")
-      if showsContext {
-        VStack(alignment: .leading, spacing: 6) {
-          Text("Before: \(candidate.originalContext)")
-          Text("After: \(candidate.correctedContext)")
+      DisclosureGroup(isExpanded: $showsContext) {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 4) {
+          GridRow {
+            Text("Before").foregroundStyle(.secondary)
+            Text(candidate.originalContext)
+          }
+          GridRow {
+            Text("After").foregroundStyle(.secondary)
+            Text(candidate.correctedContext)
+          }
         }
         .font(.callout)
         .textSelection(.enabled)
-        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
+      } label: {
+        Text("Was “\(candidate.originalTerm)”")
+          .font(.caption)
+          .foregroundStyle(.secondary)
       }
       if let errorMessage {
         Text(errorMessage).font(.callout).foregroundStyle(.red)
       }
     }
-    .padding(.vertical, 8)
   }
 
   private func perform(_ operation: () throws -> Void) {

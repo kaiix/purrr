@@ -6,7 +6,7 @@ struct VocabularyNotice {
 }
 
 enum VocabularyNoticeLayout {
-  static let size = NSSize(width: 380, height: 60)
+  static let size = NSSize(width: 380, height: 44)
   static let inset: CGFloat = 2
   static var panelSize: NSSize {
     NSSize(width: size.width + inset * 2, height: size.height + inset * 2)
@@ -62,7 +62,7 @@ final class VocabularyNoticeController: ObservableObject {
       dismiss()
     } catch {
       errorMessage = error.localizedDescription
-      dismissalTask?.cancel()
+      scheduleDismissal()
     }
   }
 
@@ -106,7 +106,7 @@ final class VocabularyNoticeController: ObservableObject {
 
   private func scheduleDismissal() {
     dismissalTask?.cancel()
-    guard notice != nil, !isSuspended, !isHovering, errorMessage == nil else { return }
+    guard notice != nil, !isSuspended, !isHovering else { return }
     dismissalTask = Task { @MainActor [weak self] in
       do {
         try await Task.sleep(for: .seconds(7))
