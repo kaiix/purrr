@@ -36,7 +36,7 @@ struct TranscriptionBarView: View {
         resultStatus(
           symbol: "exclamationmark",
           symbolBackground: .red,
-          title: "Couldn’t finish",
+          title: model.failureTitle,
           help: model.statusMessage
         )
       case .idle:

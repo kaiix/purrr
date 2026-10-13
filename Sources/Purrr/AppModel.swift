@@ -28,6 +28,7 @@ final class AppModel: ObservableObject {
   @Published private(set) var audioLevel: Double = 0
   @Published private(set) var elapsed: TimeInterval = 0
   @Published private(set) var statusMessage: String = ""
+  @Published private(set) var failureTitle = "Failed"
   @Published private(set) var connectionTestStatus: ConnectionTestStatus = .idle
   @Published private(set) var availableLLMModels: [String] = []
   @Published private(set) var modelListStatus: ModelListStatus = .idle
@@ -220,7 +221,7 @@ final class AppModel: ObservableObject {
       } catch {
         if !Task.isCancelled {
           failure =
-            "Vocabulary review failed. Nothing was added. Check your LLM connection and try Review Edits again."
+            "Check failed. Nothing was added."
         }
       }
     }
@@ -256,7 +257,7 @@ final class AppModel: ObservableObject {
       processedText: nil,
       targetLanguage: activeTargetLanguage,
       status: .dismissed,
-      failureMessage: "The transcription was dismissed."
+      failureMessage: "Cancelled"
     )
     resetSession()
     panelController.hide()
@@ -265,17 +266,17 @@ final class AppModel: ObservableObject {
   func retry(_ entry: HistoryEntry) {
     guard phase == .idle, !isStartingSession else { return }
     guard entry.expiresAt > Date() else {
-      showTransientFailure("This recording has expired.")
+      showTransientFailure("This recording has expired.", title: "Expired")
       return
     }
     let retryNeedsLanguageModel =
       entry.mode == .translate || entry.failureStage == .languageModel
-    if retryNeedsLanguageModel && (!settings.llmEnabled || !settings.isLLMConfigured) {
-      showTransientFailure("Enable and configure the LLM before retrying.")
+    if retryNeedsLanguageModel && !settings.llmEnabled {
+      showTransientFailure("Turn on the LLM to retry.", title: "LLM is off")
       return
     }
     if settings.llmEnabled && !settings.isLLMConfigured {
-      showTransientFailure("Finish the LLM setup before retrying.")
+      showTransientFailure("Finish LLM setup first.", title: "Set up LLM")
       return
     }
 
@@ -298,7 +299,7 @@ final class AppModel: ObservableObject {
     }
 
     guard let pcm = history.pcmAudio(for: entry) else {
-      finishRetryFailure("The retained audio is unavailable.", stage: .speechRecognition)
+      finishRetryFailure("The audio is no longer available.", stage: .speechRecognition)
       return
     }
 
@@ -322,7 +323,7 @@ final class AppModel: ObservableObject {
 
   func testLLMConnection() {
     guard settings.isLLMConfigured else {
-      connectionTestStatus = .failed("Complete Base URL, API key, and model first.")
+      connectionTestStatus = .failed("Add a base URL, API key, and model first.")
       return
     }
     connectionTestStatus = .testing
@@ -339,7 +340,7 @@ final class AppModel: ObservableObject {
 
   func refreshLLMModels() {
     guard settings.hasLLMCredentials else {
-      modelListStatus = .failed("Enter a valid Base URL and API key first.")
+      modelListStatus = .failed("Add a base URL and API key first.")
       return
     }
 
@@ -351,7 +352,7 @@ final class AppModel: ObservableObject {
         let models = try await textProcessor.listModels(baseURL: baseURL, apiKey: apiKey)
         guard !models.isEmpty else {
           availableLLMModels = []
-          modelListStatus = .failed("The endpoint returned no models.")
+          modelListStatus = .failed("No models found.")
           return
         }
         availableLLMModels = models
@@ -386,16 +387,16 @@ final class AppModel: ObservableObject {
 
   private func begin(_ mode: SessionMode) async {
     if settings.llmEnabled && !settings.isLLMConfigured {
-      showTransientFailure("Finish the LLM setup before recording.")
+      showTransientFailure("Finish LLM setup first.", title: "Set up LLM")
       return
     }
     if mode == .translate && !settings.llmEnabled {
-      showTransientFailure("Enable the LLM in Settings to use Translate.")
+      showTransientFailure("Turn on the LLM to use Translate.", title: "LLM is off")
       return
     }
     let requestedDestination = delivery.captureDestination()
     guard await AudioRecorder.requestPermission() else {
-      showTransientFailure("Allow microphone access in System Settings to record speech.")
+      showTransientFailure("Allow microphone access in System Settings.", title: "Mic blocked")
       return
     }
 
@@ -513,7 +514,7 @@ final class AppModel: ObservableObject {
         failureMessage: fallbackMessage,
         usedRawFallback: usedFallback
       )
-      showSuccess("Retry complete")
+      showSuccess("Done")
       return
     }
 
@@ -552,7 +553,7 @@ final class AppModel: ObservableObject {
 
   private func finishEmptySession() {
     if pendingRetryID != nil {
-      finishRetryFailure("No speech was detected.", stage: .speechRecognition)
+      finishRetryFailure("No speech detected.", stage: .speechRecognition, title: "No speech")
     } else if let mode = activeMode {
       history.add(
         mode: mode,
@@ -562,7 +563,7 @@ final class AppModel: ObservableObject {
         targetLanguage: activeTargetLanguage,
         status: .dismissed,
         failureStage: .speechRecognition,
-        failureMessage: "No speech was detected."
+        failureMessage: "No speech detected."
       )
       resetSession()
       panelController.hide()
@@ -578,6 +579,7 @@ final class AppModel: ObservableObject {
       finishRetryFailure(message, stage: stage, sourceText: sourceText)
       return
     }
+    failureTitle = Self.failureTitle(for: stage)
     if let mode = activeMode {
       history.add(
         mode: mode,
@@ -598,8 +600,10 @@ final class AppModel: ObservableObject {
   private func finishRetryFailure(
     _ message: String,
     stage: FailureStage,
-    sourceText: String? = nil
+    sourceText: String? = nil,
+    title: String? = nil
   ) {
+    failureTitle = title ?? Self.failureTitle(for: stage)
     if let retryID = pendingRetryID {
       history.update(
         id: retryID,
@@ -621,7 +625,12 @@ final class AppModel: ObservableObject {
     scheduleReset(after: 1)
   }
 
-  private func showTransientFailure(_ message: String) {
+  private static func failureTitle(for stage: FailureStage) -> String {
+    stage == .languageModel ? "LLM failed" : "Failed"
+  }
+
+  private func showTransientFailure(_ message: String, title: String = "Failed") {
+    failureTitle = title
     phase = .failed(message)
     statusMessage = message
     panelController.show()
