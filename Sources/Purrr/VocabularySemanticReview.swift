@@ -1,7 +1,7 @@
 import Foundation
 
-struct VocabularyReviewDecision: Equatable {
-  enum Action: String, Decodable {
+struct VocabularyReviewDecision: Codable, Equatable {
+  enum Action: String, Codable {
     case termCorrection = "term_correction"
     case ordinaryEdit = "ordinary_edit"
     case uncertain

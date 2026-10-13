@@ -40,23 +40,39 @@ final class VocabularyStore: ObservableObject {
   @Published private(set) var isReviewing = false
   @Published private(set) var reviewError: String?
 
-  private struct Snapshot: Codable {
+  private struct Snapshot: Codable, Equatable {
     var words: [VocabularyWord] = []
     var dismissedCandidateIDs: Set<String> = []
     var collectsEdits = true
+    var reviewResults: [String: VocabularyReviewDecision] = [:]
+
+    init() {}
+
+    private enum CodingKeys: String, CodingKey {
+      case words, dismissedCandidateIDs, collectsEdits, reviewResults
+    }
+
+    init(from decoder: Decoder) throws {
+      let values = try decoder.container(keyedBy: CodingKeys.self)
+      words = try values.decode([VocabularyWord].self, forKey: .words)
+      dismissedCandidateIDs = try values.decode(Set<String>.self, forKey: .dismissedCandidateIDs)
+      collectsEdits = try values.decode(Bool.self, forKey: .collectsEdits)
+      reviewResults =
+        try values.decodeIfPresent([String: VocabularyReviewDecision].self, forKey: .reviewResults)
+        ?? [:]
+    }
   }
 
   private let fileURL: URL
   private var snapshot = Snapshot()
   private var observedCandidates: [VocabularyCandidate] = []
   private var canWrite = true
-  private var reviewResults: [String: VocabularyReviewDecision] = [:]
   private var activeReviews = 0
 
   var unreviewedCandidates: [VocabularyCandidate] {
     guard collectsEdits else { return [] }
     return observedCandidates.filter {
-      reviewResults[$0.id] == nil && !snapshot.dismissedCandidateIDs.contains($0.id)
+      snapshot.reviewResults[$0.id] == nil && !snapshot.dismissedCandidateIDs.contains($0.id)
     }
   }
 
@@ -81,17 +97,31 @@ final class VocabularyStore: ObservableObject {
   }
 
   func refresh(from history: [HistoryEntry], collectingEdits: Bool? = nil, now: Date = Date()) {
+    let activeHistory = history.filter { $0.expiresAt > now }
+    let eligibleCandidates = activeHistory.flatMap {
+      VocabularyCandidateExtractor.candidates(from: $0)
+    }
     observedCandidates =
-      (collectingEdits ?? collectsEdits)
-      ? history.filter { $0.expiresAt > now }
-        .flatMap { VocabularyCandidateExtractor.candidates(from: $0) } : []
+      (collectingEdits ?? collectsEdits) ? eligibleCandidates : []
     // Review evidence has the same lifetime as History, not the confirmed word list.
-    let activeHistoryIDs = Set(history.filter { $0.expiresAt > now }.map { $0.id.uuidString })
-    snapshot.dismissedCandidateIDs = snapshot.dismissedCandidateIDs.filter {
+    let activeHistoryIDs = Set(activeHistory.map { $0.id.uuidString })
+    var next = snapshot
+    next.dismissedCandidateIDs = next.dismissedCandidateIDs.filter {
       activeHistoryIDs.contains(String($0.prefix(36)))
     }
-    let activeCandidateIDs = Set(observedCandidates.map(\.id))
-    reviewResults = reviewResults.filter { activeCandidateIDs.contains($0.key) }
+    // Turning collection off hides suggestions without forgetting completed reviews.
+    next.reviewResults = next.reviewResults.filter { id, decision in
+      guard let proposal = eligibleCandidates.first(where: { $0.id == id }) else { return false }
+      return (try? VocabularySemanticReview.validate([decision], candidates: [proposal])) != nil
+    }
+    if next != snapshot {
+      do {
+        try save(next)
+        return
+      } catch {
+        // Keep readable history available even when metadata cleanup cannot be saved.
+      }
+    }
     publishCandidates()
   }
 
@@ -130,14 +160,14 @@ final class VocabularyStore: ObservableObject {
   ) throws -> [VocabularyWord] {
     guard collectsEdits else { return [] }
     try VocabularySemanticReview.validate(decisions, candidates: proposals)
-    let previousResults = reviewResults
+    var next = snapshot
     var approved: [VocabularyCandidate] = []
     for decision in decisions {
       guard let proposal = proposals.first(where: { $0.id == decision.candidateID }),
         observedCandidates.contains(proposal),
         !snapshot.dismissedCandidateIDs.contains(proposal.id)
       else { continue }
-      reviewResults[proposal.id] = decision
+      next.reviewResults[proposal.id] = decision
       if decision.action == .termCorrection, let term = decision.term {
         var reviewed = proposal
         reviewed.correctedTerm = term
@@ -145,12 +175,9 @@ final class VocabularyStore: ObservableObject {
         approved.append(reviewed)
       }
     }
-    publishCandidates()
-    guard automaticallyAdd else { return [] }
-    var next = snapshot
     var existing = Set(words.map { Self.key($0.term) })
     var added: [VocabularyWord] = []
-    for candidate in approved {
+    for candidate in automaticallyAdd ? approved : [] {
       let key = Self.key(candidate.correctedTerm)
       if existing.contains(key) {
         // Suppress duplicate evidence in the same batch as a newly added word.
@@ -167,15 +194,10 @@ final class VocabularyStore: ObservableObject {
       existing.insert(key)
       next.dismissedCandidateIDs.insert(candidate.id)
     }
-    guard !added.isEmpty else { return [] }
-    do {
-      try save(next)
-    } catch {
-      // A failed save must leave these edits available for another review attempt.
-      reviewResults = previousResults
-      publishCandidates()
-      throw error
-    }
+    guard next != snapshot else { return [] }
+    // Persist every successful decision, even when no word is accepted or newly added.
+    // Publishing only after the atomic save leaves failed attempts retryable.
+    try save(next)
     return added
   }
 
@@ -272,7 +294,7 @@ final class VocabularyStore: ObservableObject {
       collectsEdits
       ? observedCandidates.compactMap { proposal in
         guard !snapshot.dismissedCandidateIDs.contains(proposal.id),
-          let decision = reviewResults[proposal.id], decision.action == .termCorrection,
+          let decision = snapshot.reviewResults[proposal.id], decision.action == .termCorrection,
           let term = decision.term, !existing.contains(Self.key(term))
         else { return nil }
         var reviewed = proposal

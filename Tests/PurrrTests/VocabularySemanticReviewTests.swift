@@ -113,6 +113,143 @@ final class VocabularySemanticReviewTests: XCTestCase {
   }
 
   @MainActor
+  func testCompletedReviewsSurviveReloadWithoutSkippingUncheckedEdits() throws {
+    let root = temporaryStorage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = VocabularyStore(storageURL: root)
+    try store.add("ChatGPT")
+    let revisions = [
+      entry(before: "Please open TypeList now", after: "Please open typeless now"),
+      entry(before: "这里应该说清楚", after: "这里定义说清楚"),
+      entry(before: "Please open aw day now", after: "Please open auday now"),
+      entry(before: "Please open ChatGDP now", after: "Please open ChatGPT now"),
+    ]
+    let now = revisions[0].completedAt.addingTimeInterval(1)
+    store.refresh(from: revisions, now: now)
+    XCTAssertEqual(store.unreviewedCandidates.count, 4)
+    let proposals = store.unreviewedCandidates
+    let decisions = proposals.map { proposal in
+      switch proposal.historyID {
+      case revisions[1].id:
+        VocabularyReviewDecision(candidateID: proposal.id, action: .ordinaryEdit, term: nil)
+      case revisions[2].id:
+        VocabularyReviewDecision(candidateID: proposal.id, action: .uncertain, term: nil)
+      default:
+        VocabularyReviewDecision(
+          candidateID: proposal.id, action: .termCorrection, term: proposal.correctedTerm)
+      }
+    }
+    _ = try store.applyReview(decisions, proposals: proposals, automaticallyAdd: false, now: now)
+
+    let pending = entry(before: "Please open Harrow now", after: "Please open haro now")
+    let reloaded = VocabularyStore(storageURL: root)
+    reloaded.refresh(from: revisions + [pending], now: now)
+    XCTAssertEqual(reloaded.unreviewedCandidates.map(\.historyID), [pending.id])
+    XCTAssertEqual(reloaded.candidates.map(\.correctedTerm), ["typeless"])
+    XCTAssertEqual(reloaded.words.map(\.term), ["ChatGPT"])
+    try reloaded.confirm(try XCTUnwrap(reloaded.candidates.first), term: "typeless")
+
+    let confirmed = VocabularyStore(storageURL: root)
+    confirmed.refresh(from: revisions + [pending], now: now)
+    XCTAssertEqual(confirmed.unreviewedCandidates.map(\.historyID), [pending.id])
+    XCTAssertTrue(confirmed.candidates.isEmpty)
+    XCTAssertEqual(Set(confirmed.words.map(\.term)), ["ChatGPT", "typeless"])
+  }
+
+  @MainActor
+  func testReviewProgressSurvivesDisabledCollectionAndIsRemovedWithHistory() throws {
+    for expires in [false, true] {
+      let root = temporaryStorage()
+      defer { try? FileManager.default.removeItem(at: root) }
+      let store = VocabularyStore(storageURL: root)
+      try store.add("Kept word")
+      let revision = entry(before: "Please open TypeList now", after: "Please open typeless now")
+      let now = revision.completedAt.addingTimeInterval(1)
+      store.refresh(from: [revision], now: now)
+      let proposal = try XCTUnwrap(store.unreviewedCandidates.first)
+      _ = try store.applyReview(
+        [VocabularyReviewDecision(candidateID: proposal.id, action: .uncertain, term: nil)],
+        proposals: [proposal], automaticallyAdd: true, now: now)
+      try store.setCollectsEdits(false)
+      store.refresh(from: [revision], collectingEdits: false, now: now)
+
+      let reloaded = VocabularyStore(storageURL: root)
+      reloaded.refresh(from: [revision], now: now)
+      try reloaded.setCollectsEdits(true)
+      reloaded.refresh(from: [revision], now: now)
+      XCTAssertTrue(reloaded.unreviewedCandidates.isEmpty)
+      XCTAssertTrue(reloaded.candidates.isEmpty)
+
+      reloaded.refresh(from: expires ? [revision] : [], now: expires ? revision.expiresAt : now)
+      let persisted = try String(
+        contentsOf: root.appendingPathComponent("vocabulary.json"), encoding: .utf8)
+      XCTAssertFalse(
+        persisted.contains(proposal.id), "Deleted or expired review metadata must be removed")
+      XCTAssertFalse(
+        persisted.contains("Please open"), "Review progress must not duplicate context")
+      XCTAssertEqual(VocabularyStore(storageURL: root).words.map(\.term), ["Kept word"])
+    }
+  }
+
+  @MainActor
+  func testFailedManualReviewSaveDoesNotMarkAnEditAsChecked() throws {
+    let root = temporaryStorage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let blocked = root.appendingPathComponent("not-a-directory")
+    try Data("occupied".utf8).write(to: blocked)
+    let store = VocabularyStore(storageURL: blocked)
+    let revision = entry(before: "这里应该说清楚", after: "这里定义说清楚")
+    let now = revision.completedAt.addingTimeInterval(1)
+    store.refresh(from: [revision], now: now)
+    let proposal = try XCTUnwrap(store.unreviewedCandidates.first)
+    let decision = VocabularyReviewDecision(
+      candidateID: proposal.id, action: .ordinaryEdit, term: nil)
+    XCTAssertThrowsError(
+      try store.applyReview([decision], proposals: [proposal], automaticallyAdd: false, now: now))
+    XCTAssertEqual(store.unreviewedCandidates.map(\.id), [proposal.id])
+
+    try FileManager.default.removeItem(at: blocked)
+    let reloaded = VocabularyStore(storageURL: blocked)
+    reloaded.refresh(from: [revision], now: now)
+    XCTAssertEqual(reloaded.unreviewedCandidates.map(\.id), [proposal.id])
+    _ = try reloaded.applyReview(
+      [decision], proposals: [proposal], automaticallyAdd: false, now: now)
+    let checked = VocabularyStore(storageURL: blocked)
+    checked.refresh(from: [revision], now: now)
+    XCTAssertTrue(checked.unreviewedCandidates.isEmpty)
+    XCTAssertTrue(checked.words.isEmpty)
+  }
+
+  @MainActor
+  func testOutOfOrderReviewsAndChangedEditsRemainIndependentlyCheckable() throws {
+    let root = temporaryStorage()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = VocabularyStore(storageURL: root)
+    let older = entry(before: "Please open TypeList now", after: "Please open typeless now")
+    var later = entry(before: "Please open AllDay now", after: "Please open auday now")
+    later.submittedAt = later.completedAt.addingTimeInterval(10)
+    let now = later.completedAt.addingTimeInterval(11)
+    store.refresh(from: [older, later], now: now)
+    let proposal = try XCTUnwrap(store.unreviewedCandidates.first { $0.historyID == later.id })
+    _ = try store.applyReview(
+      [VocabularyReviewDecision(candidateID: proposal.id, action: .termCorrection, term: "auday")],
+      proposals: [proposal], automaticallyAdd: false, now: now)
+    let reloaded = VocabularyStore(storageURL: root)
+    reloaded.refresh(from: [older, later], now: now)
+    XCTAssertEqual(reloaded.unreviewedCandidates.map(\.historyID), [older.id])
+    XCTAssertEqual(reloaded.candidates.map(\.correctedTerm), ["auday"])
+
+    later.submittedText = "Please open haro now"
+    reloaded.refresh(from: [older, later], now: now)
+    XCTAssertEqual(Set(reloaded.unreviewedCandidates.map(\.historyID)), [older.id, later.id])
+    XCTAssertTrue(reloaded.candidates.isEmpty)
+    let persisted = try String(
+      contentsOf: root.appendingPathComponent("vocabulary.json"), encoding: .utf8)
+    XCTAssertFalse(persisted.contains(proposal.id))
+  }
+
+  @MainActor
   func testOlderAutoAddedWordsDecodeAsUnreviewedAndAreNotDeleted() throws {
     let root = temporaryStorage()
     defer { try? FileManager.default.removeItem(at: root) }
