@@ -83,5 +83,9 @@ final class AppWindowCoordinator: NSObject, NSWindowDelegate {
     NSApp.setActivationPolicy(.regular)
     NSApp.activate(ignoringOtherApps: true)
     window.makeKeyAndOrderFront(nil)
+    // Purrr has no help book.
+    DispatchQueue.main.async {
+      NSApp.mainMenu?.items.first { $0.title == "Help" }?.isHidden = true
+    }
   }
 }

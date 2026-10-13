@@ -48,11 +48,19 @@ struct PurrrApp: App {
         }
         .keyboardShortcut(",", modifiers: .command)
       }
+      CommandGroup(before: .windowSize) {
+        Button("Close Window") {
+          NSApp.keyWindow?.performClose(nil)
+        }
+        .keyboardShortcut("w", modifiers: .command)
+      }
       CommandGroup(after: .windowList) {
         Button("History") {
           model.showHistory()
         }
+        .keyboardShortcut("y", modifiers: .command)
       }
+      CommandGroup(replacing: .help) {}
     }
   }
 
