@@ -147,10 +147,10 @@ Existing entries migrate as follows:
 Each entry displays all three stages with explicit labels:
 
 1. Final
-2. Optimized
+2. Polished (Translated for Translate sessions)
 3. Transcript
 
-Optimized is the user-facing label for the persisted `processedText` value. Each available stage displays its complete text and provides an independent copy action. An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text. Identical stages remain identifiable as unchanged. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
+Polished or Translated is the user-facing label for the persisted `processedText` value. Each available stage displays its complete text and provides an independent copy action. An unavailable final stage displays a neutral value such as "Not captured" rather than silently reusing processed text. Identical stages remain identifiable as unchanged. An expanded comparison may highlight both `Transcript -> Processed` and `Processed -> Final` edits.
 
 Retry updates the raw and processed stages but sets the submitted stage to `notObserved`, because a History retry is not pasted automatically.
 
@@ -228,9 +228,9 @@ Purrr does not capture a complete conversation. It normally lacks assistant repl
 
 Vocabulary deliberately does not affect ASR, Dictate processing, Translate processing, or text insertion. It does not synchronize words to Doubao IME or inject the saved vocabulary into processing prompts. Semantic review does make a separate request to the configured LLM with bounded before/after edit snippets.
 
-Settings includes a native Vocabulary tab with Saved Words and Review Edits. Users can add, edit, or delete words manually. Raw differences are not displayed as term proposals. New eligible Dictate final-edit outcomes request semantic review when both collection and the configured LLM are enabled. Only approved same-entity spelling corrections are automatically added. Older edits are reviewed only when the user selects Review Edits with LLM; approved proposals then require manual acceptance. Loading or refreshing history never sends model requests or adds words automatically. LLM-off, incomplete configuration, ordinary edits, uncertain decisions, failed requests, and invalid responses never fall back to raw-diff automatic addition.
+Settings includes a native Vocabulary tab with Words and Suggestions. Users can add, edit, or delete words manually. Raw differences are not displayed as term proposals. New eligible Dictate final-edit outcomes request semantic review when both collection and the configured LLM are enabled. Only approved same-entity spelling corrections are automatically added. Older edits are reviewed only when the user selects Check in Suggestions; approved proposals then require manual acceptance. Loading or refreshing history never sends model requests or adds words automatically. LLM-off, incomplete configuration, ordinary edits, uncertain decisions, failed requests, and invalid responses never fall back to raw-diff automatic addition.
 
-After a successful save, a nonactivating notice appears at the screen's usable lower edge with the collected term and Undo, Edit, and Close actions. Multiple words from one outcome share a single notice; Edit opens the first new word in the Vocabulary tab, scrolls to its row, and focuses its spelling field. Undo atomically removes only the notice's new words and refuses if any was subsequently edited or removed. Dismissed edit fingerprints prevent the same captured edit from immediately adding an undone word again; they do not blacklist that spelling for every future session. Close or timeout keeps the words. The notice lasts seven seconds, pauses while hovered, and waits while the transcription bar is active. It never claims that an unsaved word was added.
+After a successful save, a nonactivating notice appears at the screen's usable lower edge with the collected term and an Undo action; clicking the notice opens the word for editing. Multiple words from one outcome share a single notice; Edit opens the first new word in the Vocabulary tab, scrolls to its row, and focuses its spelling field. Undo atomically removes only the notice's new words and refuses if any was subsequently edited or removed. Dismissed edit fingerprints prevent the same captured edit from immediately adding an undone word again; they do not blacklist that spelling for every future session. Close or timeout keeps the words. The notice lasts seven seconds, pauses while hovered, and waits while the transcription bar is active. It never claims that an unsaved word was added.
 
 Saved words persist separately from the 24-hour history in the app's local application-support directory. Their minimal model is `id`, `term`, `source` (`manual`, `confirmedEdit`, or `autoAdded`), `createdAt`, and an optional `reviewedByLLM` flag. Older auto-added words lacking that flag remain intact and are labeled as predating semantic review; they are not silently deleted or automatically re-uploaded for review. Case and diacritics are preserved; duplicate checks ignore case and repeated whitespace but do not strip diacritics. Observed misspellings are not replacement rules and are not stored in saved words.
 
@@ -238,7 +238,7 @@ Candidate evidence is derived from unexpired history rather than copied into a s
 
 ### Local comparison algorithm
 
-1. Use only successful Dictate entries with confirmed Final text and an available Optimized stage. Compare `processedText -> submittedText`, not raw ASR text against Final: the former isolates user edits rather than learning the LLM's own changes.
+1. Use only successful Dictate entries with confirmed Final text and an available Polished stage. Compare `processedText -> submittedText`, not raw ASR text against Final: the former isolates user edits rather than learning the LLM's own changes.
 2. Normalize Unicode to NFC and tokenize both texts with macOS `NLTokenizer` at word granularity. Token equality ignores case. Keep original string ranges for exact spelling and context display.
 3. Use Swift's standard `CollectionDifference` sequence comparison to locate unchanged anchors and contiguous changed spans. Consider only small replacement hunks with both an original and a corrected side. This supports `AllDay`, `all day`, or `aw day` being edited to `auday`, without requiring a previously known alias.
 4. Exclude pure insertion/deletion, punctuation/case/spacing-only changes, numeric or identifier-like fragments, and long replacement spans. Bound inputs to 16,000 characters and 512 word tokens per side; limit each replacement to four tokens and each suggested term to 60 characters. Broad rewrites are excluded when at least 12 tokens are involved and more than half the combined token count is changed.
@@ -292,7 +292,7 @@ Submitted text:  Do you know typeless?
 Candidate:        TypeList -> typeless
 ```
 
-The current collection-only increment adds only LLM-approved corrections from new outcomes, with Undo and Edit. It does not use a model-reported numeric confidence threshold or apply corrections to output. Ordinary and uncertain decisions are excluded from both automatic collection and the approved-proposal list.
+The current collection-only increment adds only LLM-approved corrections from new outcomes, with Undo and click-to-edit. It does not use a model-reported numeric confidence threshold or apply corrections to output. Ordinary and uncertain decisions are excluded from both automatic collection and the approved-proposal list.
 
 ### Mode-specific learning
 
@@ -361,7 +361,7 @@ Until per-term deletion behavior is confirmed, Purrr must not automatically uplo
 
 ### Phase 3: History comparison UI
 
-- Display complete Final, Optimized, and Transcript text for every entry.
+- Display complete Final, Polished, and Transcript text for every entry.
 - Provide an independent copy action for each available stage.
 - Make unavailable states explicit.
 - Add compact comparisons without turning History into an editor.
