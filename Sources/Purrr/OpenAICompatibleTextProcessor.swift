@@ -17,6 +17,9 @@ protocol TextProcessor {
   ) async throws -> String
   func validate(configuration: LLMConfiguration) async throws
   func listModels(baseURL: String, apiKey: String) async throws -> [String]
+  func reviewVocabulary(
+    _ candidates: [VocabularyCandidate], configuration: LLMConfiguration
+  ) async throws -> [VocabularyReviewDecision]
 }
 
 enum TextProcessorError: LocalizedError {
@@ -126,6 +129,17 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
     )
   }
 
+  func reviewVocabulary(
+    _ candidates: [VocabularyCandidate], configuration: LLMConfiguration
+  ) async throws -> [VocabularyReviewDecision] {
+    guard !candidates.isEmpty else { return [] }
+    let output = try await completeRequest(
+      systemInstructions: VocabularySemanticReview.instructions,
+      userPayload: VocabularySemanticReview.payload(for: candidates), configuration: configuration
+    )
+    return try VocabularySemanticReview.decode(output, candidates: candidates)
+  }
+
   func listModels(baseURL: String, apiKey: String) async throws -> [String] {
     guard let endpoint = modelsURL(from: baseURL),
       !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -167,6 +181,19 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
     input: String,
     configuration: LLMConfiguration
   ) async throws -> String {
+    let sourceData = try JSONEncoder().encode(SourceTextEnvelope(sourceText: input))
+    let systemInstructions = [instructions, Self.sourceTextContract]
+      .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+      .joined(separator: "\n\n")
+    return try await completeRequest(
+      systemInstructions: systemInstructions,
+      userPayload: String(decoding: sourceData, as: UTF8.self), configuration: configuration
+    )
+  }
+
+  private func completeRequest(
+    systemInstructions: String, userPayload: String, configuration: LLMConfiguration
+  ) async throws -> String {
     guard let endpoint = endpointURL(from: configuration.baseURL),
       !configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
       !configuration.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -177,8 +204,8 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
     do {
       return try await send(
         endpoint: endpoint,
-        instructions: instructions,
-        input: input,
+        systemInstructions: systemInstructions,
+        userPayload: userPayload,
         configuration: configuration,
         temperature: 0
       )
@@ -187,8 +214,8 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
     {
       return try await send(
         endpoint: endpoint,
-        instructions: instructions,
-        input: input,
+        systemInstructions: systemInstructions,
+        userPayload: userPayload,
         configuration: configuration,
         temperature: nil
       )
@@ -197,17 +224,11 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
 
   private func send(
     endpoint: URL,
-    instructions: String,
-    input: String,
+    systemInstructions: String,
+    userPayload: String,
     configuration: LLMConfiguration,
     temperature: Double?
   ) async throws -> String {
-    let sourceData = try JSONEncoder().encode(SourceTextEnvelope(sourceText: input))
-    let sourcePayload = String(decoding: sourceData, as: UTF8.self)
-    let systemInstructions = [instructions, Self.sourceTextContract]
-      .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-      .joined(separator: "\n\n")
-
     var request = URLRequest(url: endpoint)
     request.httpMethod = "POST"
     request.timeoutInterval = 30
@@ -218,7 +239,7 @@ final class OpenAICompatibleTextProcessor: TextProcessor {
         model: configuration.model,
         messages: [
           Message(role: "system", content: systemInstructions),
-          Message(role: "user", content: sourcePayload),
+          Message(role: "user", content: userPayload),
         ],
         temperature: temperature,
         stream: false

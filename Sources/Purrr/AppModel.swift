@@ -17,6 +17,10 @@ enum ModelListStatus: Equatable {
   case failed(String)
 }
 
+enum SettingsTab: Hashable {
+  case general, llm, vocabulary
+}
+
 @MainActor
 final class AppModel: ObservableObject {
   @Published private(set) var phase: SessionPhase = .idle
@@ -28,9 +32,12 @@ final class AppModel: ObservableObject {
   @Published private(set) var availableLLMModels: [String] = []
   @Published private(set) var modelListStatus: ModelListStatus = .idle
   @Published private(set) var shortcutWarning: String?
+  @Published var settingsTab: SettingsTab = .general
+  @Published var vocabularyEditRequest: UUID?
 
   let settings: AppSettings
   let history: HistoryStore
+  let vocabulary = VocabularyStore()
 
   private let shortcuts = GlobalShortcutMonitor()
   private let audioRecorder = AudioRecorder()
@@ -50,8 +57,11 @@ final class AppModel: ObservableObject {
   private var escapeMonitor: Any?
   private var cancellables: Set<AnyCancellable> = []
   private var cleanupTimer: Timer?
+  private var vocabularyReviewTasks: [UUID: Task<Void, Never>] = [:]
+  private var reviewingCandidateIDs = Set<String>()
 
   private lazy var panelController = TranscriptionPanelController(model: self)
+  private lazy var vocabularyNotices = VocabularyNoticeController(vocabulary: vocabulary)
 
   init(
     settings: AppSettings,
@@ -63,6 +73,20 @@ final class AppModel: ObservableObject {
     self.history = history
     self.speechEngine = speechEngine
     self.textProcessor = textProcessor
+
+    vocabularyNotices.onEdit = { [weak self] id in
+      self?.editVocabularyWord(id: id)
+    }
+    $phase.sink { [weak vocabularyNotices] phase in
+      vocabularyNotices?.setSuspended(phase != .idle)
+    }.store(in: &cancellables)
+
+    history.$entries
+      .combineLatest(vocabulary.$collectsEdits)
+      .sink { [weak vocabulary] entries, enabled in
+        vocabulary?.refresh(from: entries, collectingEdits: enabled)
+      }
+      .store(in: &cancellables)
 
     shortcuts.onTrigger = { [weak self] mode in
       Task { @MainActor in
@@ -83,7 +107,12 @@ final class AppModel: ObservableObject {
     }
     submittedTextObserver.onUpdate = { [weak self] id, outcome in
       Task { @MainActor in
-        self?.history.applySubmissionOutcome(id: id, outcome: outcome)
+        guard let self else { return }
+        self.history.applySubmissionOutcome(id: id, outcome: outcome)
+        guard case .confirmed = outcome else { return }
+        self.startVocabularyReview(
+          self.vocabulary.unreviewedCandidates.filter { $0.historyID == id }, automaticallyAdd: true
+        )
       }
     }
     speechEngine.onEvent = { [weak self] sessionID, event in
@@ -126,6 +155,7 @@ final class AppModel: ObservableObject {
   }
 
   deinit {
+    for task in vocabularyReviewTasks.values { task.cancel() }
     clockTask?.cancel()
     cleanupTimer?.invalidate()
     if let escapeMonitor {
@@ -143,6 +173,57 @@ final class AppModel: ObservableObject {
 
   func showSettings() {
     windows.showSettings(settings: settings, model: self)
+  }
+
+  func editVocabularyWord(id: UUID) {
+    guard vocabulary.words.contains(where: { $0.id == id }) else { return }
+    settingsTab = .vocabulary
+    vocabularyEditRequest = id
+    showSettings()
+  }
+
+  func reviewVocabularyEdits() {
+    startVocabularyReview(vocabulary.unreviewedCandidates, automaticallyAdd: false)
+  }
+
+  private func startVocabularyReview(_ candidates: [VocabularyCandidate], automaticallyAdd: Bool) {
+    guard settings.llmEnabled, settings.isLLMConfigured, vocabulary.collectsEdits else { return }
+    let proposals = Array(
+      candidates.filter { !reviewingCandidateIDs.contains($0.id) }
+        .prefix(VocabularySemanticReview.maximumBatchSize))
+    guard !proposals.isEmpty else { return }
+    let configuration = llmConfiguration()
+    let id = UUID()
+    reviewingCandidateIDs.formUnion(proposals.map(\.id))
+    vocabulary.beginReview()
+    vocabularyReviewTasks[id] = Task { @MainActor [weak self] in
+      guard let self else { return }
+      var failure: String?
+      defer {
+        self.reviewingCandidateIDs.subtract(proposals.map(\.id))
+        self.vocabularyReviewTasks[id] = nil
+        self.vocabulary.finishReview(error: failure)
+      }
+      do {
+        let decisions = try await self.textProcessor.reviewVocabulary(
+          proposals, configuration: configuration)
+        guard !Task.isCancelled, self.settings.llmEnabled, self.settings.isLLMConfigured,
+          self.settings.baseURL == configuration.baseURL,
+          self.settings.apiKey == configuration.apiKey, self.settings.model == configuration.model
+        else { return }
+        // Recheck deletion, expiry, retries, and the collection toggle after the network wait.
+        self.vocabulary.refresh(from: self.history.entries)
+        let added = try self.vocabulary.applyReview(
+          decisions, proposals: proposals, automaticallyAdd: automaticallyAdd
+        )
+        self.vocabularyNotices.enqueue(added)
+      } catch {
+        if !Task.isCancelled {
+          failure =
+            "Vocabulary review failed. Nothing was added. Check your LLM connection and try Review Edits again."
+        }
+      }
+    }
   }
 
   func showHistory() {

@@ -18,11 +18,20 @@ struct SettingsView: View {
   @State private var selectedPrompt: PromptKind = .dictate
 
   var body: some View {
-    TabView {
+    TabView(selection: $model.settingsTab) {
       general
         .tabItem { Label("General", systemImage: "switch.2") }
+        .tag(SettingsTab.general)
       languageModel
         .tabItem { Label("LLM", systemImage: "sparkles") }
+        .tag(SettingsTab.llm)
+      VocabularyView(
+        vocabulary: model.vocabulary, editRequest: $model.vocabularyEditRequest,
+        llmAvailable: settings.llmEnabled && settings.isLLMConfigured,
+        onReview: { model.reviewVocabularyEdits() }
+      )
+      .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
+      .tag(SettingsTab.vocabulary)
     }
     .padding(20)
     .frame(width: 700, height: 640)
