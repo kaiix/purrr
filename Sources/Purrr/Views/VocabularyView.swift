@@ -63,21 +63,6 @@ struct VocabularyView: View {
               .font(.caption)
               .foregroundStyle(.secondary)
           }
-        }
-
-        Section {
-          Picker("Vocabulary", selection: $page) {
-            Text("Words").tag(Page.words)
-            Text(
-              vocabulary.candidates.isEmpty
-                ? "Suggestions" : "Suggestions (\(vocabulary.candidates.count))"
-            ).tag(Page.review)
-          }
-          .pickerStyle(.segmented)
-          .labelsHidden()
-          .listRowBackground(Color.clear)
-          .listRowInsets(EdgeInsets())
-
           if let message = vocabulary.storageError ?? errorMessage ?? vocabulary.reviewError {
             Label(message, systemImage: "exclamationmark.triangle.fill")
               .font(.callout)
@@ -117,6 +102,19 @@ struct VocabularyView: View {
     }
   }
 
+  private var pagePicker: some View {
+    Picker("Vocabulary", selection: $page) {
+      Text("Words").tag(Page.words)
+      Text(
+        vocabulary.candidates.isEmpty
+          ? "Suggestions" : "Suggestions (\(vocabulary.candidates.count))"
+      ).tag(Page.review)
+    }
+    .pickerStyle(.segmented)
+    .labelsHidden()
+    .fixedSize()
+  }
+
   private var words: some View {
     Section {
       HStack(spacing: 8) {
@@ -131,6 +129,8 @@ struct VocabularyView: View {
         VocabularyWordRow(word: word, vocabulary: vocabulary, editingWordID: $editingWordID)
           .id(word.id)
       }
+    } header: {
+      pagePicker
     } footer: {
       Text("Saved words remain until deleted. They are not synced to Doubao IME.")
         .foregroundStyle(.secondary)
@@ -141,7 +141,8 @@ struct VocabularyView: View {
   @ViewBuilder
   private var suggestions: some View {
     let unchecked = vocabulary.unreviewedCandidates.count
-    if unchecked > 0 || vocabulary.isReviewing {
+    let showsCheck = unchecked > 0 || vocabulary.isReviewing
+    if showsCheck {
       Section {
         HStack(spacing: 8) {
           VStack(alignment: .leading, spacing: 3) {
@@ -157,6 +158,8 @@ struct VocabularyView: View {
           Button("Check", action: onReview)
             .disabled(!llmAvailable || vocabulary.isReviewing || unchecked == 0)
         }
+      } header: {
+        pagePicker
       }
     }
 
@@ -176,6 +179,8 @@ struct VocabularyView: View {
           .id(candidate.id)
         }
       }
+    } header: {
+      if !showsCheck { pagePicker }
     } footer: {
       Text("Suggestions need your confirmation and expire with their history after 24 hours.")
         .foregroundStyle(.secondary)

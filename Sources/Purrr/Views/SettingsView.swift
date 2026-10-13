@@ -10,24 +10,32 @@ struct SettingsView: View {
   @State private var accessibilityGranted = false
 
   var body: some View {
-    TabView(selection: $model.settingsTab) {
-      general
-        .tabItem { Label("General", systemImage: "gearshape") }
-        .tag(SettingsTab.general)
-      languageModel
-        .tabItem { Label("LLM", systemImage: "sparkles") }
-        .tag(SettingsTab.llm)
-      VocabularyView(
-        vocabulary: model.vocabulary, editRequest: $model.vocabularyEditRequest,
-        suggestionRequest: $model.vocabularySuggestionRequest,
-        llmAvailable: settings.llmEnabled && settings.isLLMConfigured,
-        onReview: { model.reviewVocabularyEdits() }
-      )
-      .tabItem { Label("Vocabulary", systemImage: "text.book.closed") }
-      .tag(SettingsTab.vocabulary)
+    VStack(spacing: 0) {
+      Picker("Section", selection: $model.settingsTab) {
+        Text("General").tag(SettingsTab.general)
+        Text("LLM").tag(SettingsTab.llm)
+        Text("Vocabulary").tag(SettingsTab.vocabulary)
+      }
+      .pickerStyle(.segmented)
+      .labelsHidden()
+      .fixedSize()
+      .padding(.top, 10)
+
+      switch model.settingsTab {
+      case .general:
+        general
+      case .llm:
+        languageModel
+      case .vocabulary:
+        VocabularyView(
+          vocabulary: model.vocabulary, editRequest: $model.vocabularyEditRequest,
+          suggestionRequest: $model.vocabularySuggestionRequest,
+          llmAvailable: settings.llmEnabled && settings.isLLMConfigured,
+          onReview: { model.reviewVocabularyEdits() }
+        )
+      }
     }
-    .padding(20)
-    .frame(width: 620, height: height)
+    .frame(width: 560, height: height)
     .onAppear(perform: refreshPermissions)
     .onReceive(
       NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
@@ -49,9 +57,9 @@ struct SettingsView: View {
   // Each tab shows its whole content without scrolling; Vocabulary scrolls its list.
   private var height: CGFloat {
     switch model.settingsTab {
-    case .general: 520
-    case .llm: 820
-    case .vocabulary: 640
+    case .general: 496
+    case .llm: 800
+    case .vocabulary: 590
     }
   }
 
@@ -130,7 +138,7 @@ struct SettingsView: View {
 
       Section("Privacy") {
         HStack {
-          Text("Audio is sent to Doubao IME. History stays on this Mac for 24 hours.")
+          Text("Audio is sent to Doubao IME.\nHistory stays on this Mac for 24 hours.")
             .foregroundStyle(.secondary)
           Spacer()
           Button("Open History") {
