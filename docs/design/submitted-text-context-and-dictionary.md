@@ -1,8 +1,8 @@
 # Final Edited Text, Conversation Context, and Dictionary Plan
 
-Status: Accepted implementation plan; generic final-edit tracking implemented
+Status: Accepted implementation plan; generic final-edit tracking and LLM-reviewed collection-only vocabulary implemented
 
-Date: 2026-10-12
+Date: 2026-10-13
 
 ## Purpose
 
@@ -224,6 +224,55 @@ Purrr does not capture a complete conversation. It normally lacks assistant repl
 
 ## Local Dictionary Learning
 
+### Current increment: collect and review, without correction
+
+Vocabulary deliberately does not affect ASR, Dictate processing, Translate processing, or text insertion. It does not synchronize words to Doubao IME or inject the saved vocabulary into processing prompts. Semantic review does make a separate request to the configured LLM with bounded before/after edit snippets.
+
+Settings includes a native Vocabulary tab with Saved Words and Review Edits. Users can add, edit, or delete words manually. Raw differences are not displayed as term proposals. New eligible Dictate final-edit outcomes request semantic review when both collection and the configured LLM are enabled. Only approved same-entity spelling corrections are automatically added. Older edits are reviewed only when the user selects Review Edits with LLM; approved proposals then require manual acceptance. Loading or refreshing history never sends model requests or adds words automatically. LLM-off, incomplete configuration, ordinary edits, uncertain decisions, failed requests, and invalid responses never fall back to raw-diff automatic addition.
+
+After a successful save, a nonactivating notice appears at the screen's usable lower edge with the collected term and Undo, Edit, and Close actions. Multiple words from one outcome share a single notice; Edit opens the first new word in the Vocabulary tab, scrolls to its row, and focuses its spelling field. Undo atomically removes only the notice's new words and refuses if any was subsequently edited or removed. Dismissed edit fingerprints prevent the same captured edit from immediately adding an undone word again; they do not blacklist that spelling for every future session. Close or timeout keeps the words. The notice lasts seven seconds, pauses while hovered, and waits while the transcription bar is active. It never claims that an unsaved word was added.
+
+Saved words persist separately from the 24-hour history in the app's local application-support directory. Their minimal model is `id`, `term`, `source` (`manual`, `confirmedEdit`, or `autoAdded`), `createdAt`, and an optional `reviewedByLLM` flag. Older auto-added words lacking that flag remain intact and are labeled as predating semantic review; they are not silently deleted or automatically re-uploaded for review. Case and diacritics are preserved; duplicate checks ignore case and repeated whitespace but do not strip diacritics. Observed misspellings are not replacement rules and are not stored in saved words.
+
+Candidate evidence is derived from unexpired history rather than copied into a second durable transcript store. Deleting or expiring a history entry removes its review candidates when the history updates. Dismissal metadata contains an entry identifier and an edit fingerprint, not plaintext before/after phrases. Saved words survive history deletion until the user removes them explicitly.
+
+### Local comparison algorithm
+
+1. Use only successful Dictate entries with confirmed Final text and an available Optimized stage. Compare `processedText -> submittedText`, not raw ASR text against Final: the former isolates user edits rather than learning the LLM's own changes.
+2. Normalize Unicode to NFC and tokenize both texts with macOS `NLTokenizer` at word granularity. Token equality ignores case. Keep original string ranges for exact spelling and context display.
+3. Use Swift's standard `CollectionDifference` sequence comparison to locate unchanged anchors and contiguous changed spans. Consider only small replacement hunks with both an original and a corrected side. This supports `AllDay`, `all day`, or `aw day` being edited to `auday`, without requiring a previously known alias.
+4. Exclude pure insertion/deletion, punctuation/case/spacing-only changes, numeric or identifier-like fragments, and long replacement spans. Bound inputs to 16,000 characters and 512 word tokens per side; limit each replacement to four tokens and each suggested term to 60 characters. Broad rewrites are excluded when at least 12 tokens are involved and more than half the combined token count is changed.
+5. Submit local candidates for semantic review. After approval, store complete corrected terms from new live outcomes and show the reversible notice. Older history remains a manually triggered review queue. Automatic addition stores only spelling guidance, not a forced replacement rule.
+
+Local filters alone do not classify semantics. A small ordinary rewrite may pass them, but cannot reach automatic collection without LLM approval. Real corrections may still be missed because of tokenization, repeated words, existing composer content, or length limits. Chinese word boundaries and one-character changes are not always recoverable as a complete name. Users can undo a mistaken addition, edit the spelling, or add the complete term manually. The captured Final is an editing-end snapshot, not proof of message delivery or a perfect insertion-only span. The model can also misclassify; approval is not a guarantee of correctness.
+
+### Implemented semantic review
+
+Diff answers *what changed*, not *why it changed*. Purrr now reuses the existing OpenAI-compatible endpoint, API key, and selected model for a distinct classification task. It does not use the user's Dictate or Translate prompt. The request marks every edit string as untrusted data and asks for `term_correction`, `ordinary_edit`, or `uncertain`, plus the complete corrected term only for accepted corrections.
+
+Entity detection alone is insufficient: replacing ChatGPT with Claude changes the entity rather than correcting its spelling. Learn only names, products, projects, or specialized fixed terminology where the before/after context indicates the same referent. Do not learn general rephrasing, grammar, fillers, everyday words, capitalization preferences, numbers, dates, paths, credentials, or arbitrary code identifiers. The reported 应该 -> 定义 and 然后 -> 和官方回复 edits are explicit examples of non-terminology changes.
+
+Requests contain at most 12 edits. Each snippet preserves up to six neighboring word tokens per side, capped at 200 characters before and after the changed span. Provider payloads use temporary numeric edit IDs, not history UUIDs or destination metadata, and contain no audio or complete history. Excess candidates remain available for subsequent manual review; opening Settings alone never submits them.
+
+The client validates JSON shape, complete and unique decision IDs, allowed actions, term length, control characters, and exact term presence in the corrected context. An accepted term must also overlap the changed fragment, preventing an unrelated nearby entity from being learned. No canonical case or spelling absent from the user's Final is invented. Results are rejected when their corresponding edit has been removed, expired, retried, changed, or collection has been disabled while the request was in flight. Model processing does not block recording or text delivery.
+
+Semantic decisions are held only in memory while their history evidence exists. Saved words and dismissal fingerprints persist, but full before/after snippets and classification decisions are not duplicated in long-lived storage. Older ordinary or uncertain edits can therefore require another explicit review after restart. Previously auto-added words remain visible with provenance and can be removed manually.
+
+Verification on 2026-10-13: 33 automated tests passed, including synthetic OpenAI-compatible request inspection, response validation, exclusion of ordinary and uncertain decisions, stale-evidence checks, legacy storage, and retryability after a failed save. An isolated native preview verified the pending-review screen and the transition from two synthetic edits to one approved term. These checks use supplied model responses, not real inference; accuracy of the configured model still needs observation during actual use. No production history, credentials, audio, or live provider requests were used for verification.
+
+### Future use of confirmed vocabulary
+
+When correction is enabled in a later increment, a small vocabulary should be provided to the LLM as a complete list of enabled canonical terms. Do not gate participation on an exact match against current ASR text or known misspellings: pronunciation and recognition output vary across sessions. Vocabulary is spelling guidance, not a command to replace every similar ordinary phrase. For example, `auday` must not force “I worked all day” into a product-name reference. Explicit deterministic replacement rules, if added, are a separate opt-in capability. A large vocabulary may later need a bounded, high-recall selection strategy; a retrieval framework is not needed for the collection-only increment.
+
+Doubao context belongs before recognition and remains a separate future experiment. It is not a final correction stage after LLM processing.
+
+### External evidence and its limits
+
+- [Typeless's official guide](https://www.typeless.com/help/quickstart/history-and-dictionary) confirms automatic learning of preferred spelling after a user correction and manual entry of correct words or phrases. It does not disclose the diff algorithm, semantic classifier, whether an LLM is used for learning, or whether the entire vocabulary is supplied at runtime. Snapshot comparison followed by semantic term selection is a plausible design, not a verified description of Typeless internals.
+- VoiceInk provides a verifiable open-source example: its [CorrectionDiffEngine](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Dictionary/AutoLearn/CorrectionDiffEngine.swift) extracts localized edit evidence, and its [AutoLearnAIReviewer](https://github.com/Beingpax/VoiceInk/blob/main/VoiceInk/Features/Dictionary/AutoLearn/AutoLearnAIReviewer.swift) submits before/after snippets for structured AI review. Purrr likewise separates local differences, semantic review, and reversible collection. This is an architectural reference, not copied code.
+
+The remaining sections describe the longer-term learning design, not behavior enabled in the collection-only increment.
+
 ### Candidate generation
 
 Dictionary candidates come from localized differences between processed text and confirmed submitted text. A candidate is stronger when:
@@ -243,7 +292,7 @@ Submitted text:  Do you know typeless?
 Candidate:        TypeList -> typeless
 ```
 
-High-confidence candidates may be added automatically with an Undo action. Medium-confidence candidates require confirmation. Low-confidence differences are retained only as history evidence.
+The current collection-only increment adds only LLM-approved corrections from new outcomes, with Undo and Edit. It does not use a model-reported numeric confidence threshold or apply corrections to output. Ordinary and uncertain decisions are excluded from both automatic collection and the approved-proposal list.
 
 ### Mode-specific learning
 

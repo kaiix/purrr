@@ -153,7 +153,7 @@ The system is flat and tonal by default. Standard windows rely on native title b
 
 ### Named Rules
 
-**The One Floating Surface Rule.** Custom charcoal treatment belongs only to the live transcription strip.
+**The One Floating Surface Rule.** Custom charcoal treatment belongs only to voice-session feedback: the live transcription strip and the brief vocabulary-added notice that follows editing. Settings and History retain native system surfaces.
 
 ## Shapes
 
@@ -204,6 +204,10 @@ Prompt customization uses one editor rather than two competing text surfaces. A 
 ### History Rows
 
 History is a recovery ledger, not a content card collection. Each row combines a state symbol, compact metadata, and three aligned text stages labeled Final, Optimized, and Transcript. Final is the last readable value when the post-insertion editing session ended; it carries the strongest emphasis. Optimized and Transcript remain quieter but visible for quality comparison. Every available stage shows its complete text and has its own compact native copy action. Missing stages use explicit neutral language rather than silently substituting another stage. Retry and Delete remain native, compact, and visibly disabled when unavailable.
+
+### Vocabulary Notice
+
+Word collection uses a nonactivating 380-by-60-point charcoal capsule at the transcription strip's lower-edge position, with the added spelling, standard compact Undo/Edit actions, and a quiet Close action. It appears only after LLM approval and a successful local save and yields to active transcription. The seven-second dismissal pauses while hovered. Multiple words from one edit share a notice; Undo removes only that batch if it has not subsequently changed. Edit explicitly activates Settings at the corresponding spelling field. This wider post-edit feedback surface does not resize the fixed recording strip or introduce exterior shadows. Saved words remain in the native Vocabulary list, with their source labeled and their complete spelling editable.
 
 ### Transcription Strip
 

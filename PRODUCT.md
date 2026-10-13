@@ -40,6 +40,7 @@ Purrr combines shortcut-first voice input, Doubao IME recognition, optional brin
 - The language model uses a user-provided key with a non-streaming OpenAI-compatible Chat Completions endpoint.
 - Language-model processing is optional and defaults to off. Dictate returns raw ASR text while it is off. Translate requires it to be enabled and configured.
 - Initial translation targets are English and Simplified Chinese.
+- Vocabulary is collection-only: new Dictate edits are reviewed by the configured LLM before clear name or fixed-term corrections are automatically added with a nonactivating Undo/Edit notice. Review sends bounded before/after snippets in a separate request and pauses when the LLM is off or unconfigured. Older edits require an explicit review action and manual acceptance. Vocabulary does not alter ASR or LLM dictation output or sync to Doubao IME. Saved words persist until deleted; review evidence follows the 24-hour history lifetime.
 - The current system default microphone is used in v1.
 - Only Doubao IME recognition is implemented; there is no provider selection or local model management.
 
