@@ -249,7 +249,7 @@ private struct VoiceWaveformView: View {
 
   private func append(_ newLevel: Double) {
     let clamped = min(1, max(0, newLevel))
-    let normalized = clamped < 0.025 ? CGFloat(0) : CGFloat(pow(clamped, 0.58))
+    let normalized = clamped < 0.025 ? CGFloat(0) : CGFloat(pow(clamped, 0.75))
 
     if reduceMotion {
       samples = Array(repeating: normalized, count: samples.count)
@@ -266,7 +266,7 @@ private struct VoiceWaveformView: View {
 
   private func barHeight(for sample: CGFloat) -> CGFloat {
     // Silence keeps a short baseline so the strip never looks switched off.
-    3 + sample * 15
+    3 + sample * 13
   }
 
   private func barOpacity(at index: Int) -> Double {
